@@ -1,0 +1,77 @@
+# pnd 0.dev roadmap (2024-XX-XX)
+
+- BUG: Check the example with neural networks where `gr` does not accept the arguments of `f`
+- BUG: Matching in the Hessian is too slow -- de-duplicate first
+- BUG: 1x1 Hessians?
+- BUG: arguments are sometimes not passed to FUN; example: AE98 simulation
+- UX: make the warnings once-per-sessionl; print the first error in runParallel in Grad
+- FEATURE: make all helper generators use `runParallel` instead of the long if-else
+- FEATURE: add an algorithm where the two lines intersect; should fix `sin'(pi/2)` with two branches
+- FEATURE: Implement de-duplication in the grid of points; reuse f0 and other precomputed values
+- FEATURE: If `h` is a character in `Grad`, extract the gradient directly if the order is 2
+- FEATURE: disable parallelisation if `f(x)` takes less than 0.002 s
+- FEATURE: SW algorithm for arbitrary derivative and accuracy orders
+- FEATURE: if any algorithm returns a step size larger than `0.5*|x|`, throw a warning
+- FEATURE: update the rounding error as the estimated sum of differences and evaluations of f
+- FEATURE: Handle NA in step size selection
+- FEATURE: Auto-shrink the step size at the beginning of all procedures if FUN(x) is not finite
+- FEATURE: Add absolute or relative step size
+- FEATURE: add `diagnostics` to return an attribute of grad containing original f evaluations
+- FEATURE: Add a vector of step sizes for different arguments
+- FEATURE: Pass arguments from Grad to `fdCoef`, e.g. allow stencils in `Grad` or stencil matrices like in the presentation
+- FEATURE: Create `control` or `method.args` for `Grad` with automatic step selection
+- FEATURE: Hessian via direct 4-term difference for a faster evaluation
+- FEATURE: Functions for fast and reliable Hessian computation based on parallel gradient evaluation
+- FEATURE: Return attribute of the estimated absolute error
+- FEATURE: Arbitrary mixed orders
+- DOCUMENTATION: Compare with `stats::numericDeriv`
+- MISC: Write the list of controls on the help page of `gradstep()` explicitly!
+- MISC: Check which packages depend on `numDeriv` and check compatibility with 10 top!
+- MISC: Add links to documentation and tutorials onto the GitHub page.
+- MISC: Detailed vignette explaining the mathematics behind the functions with full transparency about the choice of parameters
+- DEV: add examples for large matrices (200 x 200)
+- DEV: ensure that `Grad` takes all the arguments of `GenD` and `Jacobian`, and vice versa
+- DEV: Ensure unit-test coverage >90%
+- DEV: Check the compatibility between the function and its documentation
+- DEV: Check the release with `todor::todor_package()`, `lintr::lint_package()`, `R CMD check --as-cran`, and `goodpractice::gp(checks = all_checks()[!grepl("^lintr", all_checks())])`
+
+# pnd 0.0.7 (2025-XX-XX)
+
+# pnd 0.0.6 (2025-01-25)
+- Fix: Derivatives of vectorised functions are working. Example: `Grad(sin, 1:4)`
+- Feature: Auto-detecting the number of cores available on multi-core machines to speed up computations
+- Feature: Added plug-in step size selection with an estimated `f'''` with a rule of thumb
+- Feature: Auto-detection of parallel type
+- Feature: Added zero tolerance to the default step for a fixed step
+
+# pnd 0.0.5 (2025-01-14)
+- Feature: Extended the step-selection routines to gradients (vector input `x`)
+- Feature: Parallelisation of step selection in all algorithms
+- Feature: Mathur's AutoDX algorithm for step size selection `step.M()`
+- Feature: Added `Hessian()` that supports central differences (for the moment) and arbitrary accuracy
+- Feature: Separate `Grad()` and `Jacobian()` that call the workhorse, `GenD()`, for compatibility with `numDeriv`
+
+# pnd 0.0.4 (2024-06-10)
+- Feature: Stepleman--Winarsky algorithm for step size selection `step.SW()`
+- Feature: Automated wrapper for step size selection `gradstep()`
+- Improvement: Safe handling of function errors and non-finite returns in step-size selection procedures
+- Improvement: Finite-difference coefficients gained attributes: Taylor expansion, coefficient on the largest truncated term, and effective accuracy (useful for custom stencils)
+- Improvement: added unit tests for core features
+
+# pnd 0.0.3 (2024-06-01)
+- Feature: `solveVandermonde()` to solve ill-conditioned problems that arise in weight calculation
+- Feature: Dumontet--Vignes algorithm for step size selection `step.DV()`
+- Feature: Curtis--Reid algorithm for step size selection `step.CR()` and its modification
+- Feature: Different step sizes for the gradient
+- Fix: If the user supplies a short custom stencil and requests a high accuracy order, it will provide the best available order and produce a warning
+- Fix: The output of `Grad()` preserves the names of `x` and `FUN(x)`, which prevents errors in cases where names are required
+
+# pnd 0.0.2 (2023-12-06)
+- Fix: bug in stencil calculation
+
+# pnd 0.0.1 (2023-09-01)
+- Initial release
+- Computing finite-difference coefficients on arbitrary stencils
+- Computing numerical gradients with reasonable default step sizes
+- Numerical Jacobians
+- Support for `mclapply()` on *nix systems only

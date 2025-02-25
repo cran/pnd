@@ -1,0 +1,1042 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+<meta name="author" content="Andreï V. Kostyrka, University of Luxembourg" />
+
+
+<title>Step-size-selection algorithm benchmark</title>
+
+<script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
+// be compatible with the behavior of Pandoc < 2.8).
+document.addEventListener('DOMContentLoaded', function(e) {
+  var hs = document.querySelectorAll("div.section[class*='level'] > :first-child");
+  var i, h, a;
+  for (i = 0; i < hs.length; i++) {
+    h = hs[i];
+    if (!/^h[1-6]$/i.test(h.tagName)) continue;  // it should be a header h1-h6
+    a = h.attributes;
+    while (a.length > 0) h.removeAttribute(a[0].name);
+  }
+});
+</script>
+
+<style type="text/css">
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+span.underline{text-decoration: underline;}
+div.column{display: inline-block; vertical-align: top; width: 50%;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+</style>
+
+
+
+<style type="text/css">
+code {
+white-space: pre;
+}
+.sourceCode {
+overflow: visible;
+}
+</style>
+<style type="text/css" data-origin="pandoc">
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { display: inline-block; text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+{ counter-reset: source-line 0; }
+pre.numberSource code > span
+{ position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+color: #aaaaaa;
+}
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
+div.sourceCode
+{ }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } 
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.at { color: #7d9029; } 
+code span.bn { color: #40a070; } 
+code span.bu { color: #008000; } 
+code span.cf { color: #007020; font-weight: bold; } 
+code span.ch { color: #4070a0; } 
+code span.cn { color: #880000; } 
+code span.co { color: #60a0b0; font-style: italic; } 
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.do { color: #ba2121; font-style: italic; } 
+code span.dt { color: #902000; } 
+code span.dv { color: #40a070; } 
+code span.er { color: #ff0000; font-weight: bold; } 
+code span.ex { } 
+code span.fl { color: #40a070; } 
+code span.fu { color: #06287e; } 
+code span.im { color: #008000; font-weight: bold; } 
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.kw { color: #007020; font-weight: bold; } 
+code span.op { color: #666666; } 
+code span.ot { color: #007020; } 
+code span.pp { color: #bc7a00; } 
+code span.sc { color: #4070a0; } 
+code span.ss { color: #bb6688; } 
+code span.st { color: #4070a0; } 
+code span.va { color: #19177c; } 
+code span.vs { color: #4070a0; } 
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    var j = 0;
+    while (j < rules.length) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") {
+        j++;
+        continue;
+      }
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') {
+        j++;
+        continue;
+      }
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+
+<style type="text/css">
+p.abstract{
+text-align: center;
+font-weight: bold;
+}
+div.abstract{
+margin: auto;
+width: 90%;
+}
+</style>
+
+
+<style type="text/css">
+
+div.csl-bib-body { }
+div.csl-entry {
+clear: both;
+margin-bottom: 0em;
+}
+.hanging div.csl-entry {
+margin-left:2em;
+text-indent:-2em;
+}
+div.csl-left-margin {
+min-width:2em;
+float:left;
+}
+div.csl-right-inline {
+margin-left:2em;
+padding-left:1em;
+}
+div.csl-indent {
+margin-left: 2em;
+}
+</style>
+
+<style type="text/css">body {
+background-color: #fff;
+margin: 1em auto;
+max-width: 700px;
+overflow: visible;
+padding-left: 2em;
+padding-right: 2em;
+font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+font-size: 14px;
+line-height: 1.35;
+}
+#TOC {
+clear: both;
+margin: 0 0 10px 10px;
+padding: 4px;
+width: 400px;
+border: 1px solid #CCCCCC;
+border-radius: 5px;
+background-color: #f6f6f6;
+font-size: 13px;
+line-height: 1.3;
+}
+#TOC .toctitle {
+font-weight: bold;
+font-size: 15px;
+margin-left: 5px;
+}
+#TOC ul {
+padding-left: 40px;
+margin-left: -1.5em;
+margin-top: 5px;
+margin-bottom: 5px;
+}
+#TOC ul ul {
+margin-left: -2em;
+}
+#TOC li {
+line-height: 16px;
+}
+table {
+margin: 1em auto;
+border-width: 1px;
+border-color: #DDDDDD;
+border-style: outset;
+border-collapse: collapse;
+}
+table th {
+border-width: 2px;
+padding: 5px;
+border-style: inset;
+}
+table td {
+border-width: 1px;
+border-style: inset;
+line-height: 18px;
+padding: 5px 5px;
+}
+table, table th, table td {
+border-left-style: none;
+border-right-style: none;
+}
+table thead, table tr.even {
+background-color: #f7f7f7;
+}
+p {
+margin: 0.5em 0;
+}
+blockquote {
+background-color: #f6f6f6;
+padding: 0.25em 0.75em;
+}
+hr {
+border-style: solid;
+border: none;
+border-top: 1px solid #777;
+margin: 28px 0;
+}
+dl {
+margin-left: 0;
+}
+dl dd {
+margin-bottom: 13px;
+margin-left: 13px;
+}
+dl dt {
+font-weight: bold;
+}
+ul {
+margin-top: 0;
+}
+ul li {
+list-style: circle outside;
+}
+ul ul {
+margin-bottom: 0;
+}
+pre, code {
+background-color: #f7f7f7;
+border-radius: 3px;
+color: #333;
+white-space: pre-wrap; 
+}
+pre {
+border-radius: 3px;
+margin: 5px 0px 10px 0px;
+padding: 10px;
+}
+pre:not([class]) {
+background-color: #f7f7f7;
+}
+code {
+font-family: Consolas, Monaco, 'Courier New', monospace;
+font-size: 85%;
+}
+p > code, li > code {
+padding: 2px 0px;
+}
+div.figure {
+text-align: center;
+}
+img {
+background-color: #FFFFFF;
+padding: 2px;
+border: 1px solid #DDDDDD;
+border-radius: 3px;
+border: 1px solid #CCCCCC;
+margin: 0 5px;
+}
+h1 {
+margin-top: 0;
+font-size: 35px;
+line-height: 40px;
+}
+h2 {
+border-bottom: 4px solid #f7f7f7;
+padding-top: 10px;
+padding-bottom: 2px;
+font-size: 145%;
+}
+h3 {
+border-bottom: 2px solid #f7f7f7;
+padding-top: 10px;
+font-size: 120%;
+}
+h4 {
+border-bottom: 1px solid #f7f7f7;
+margin-left: 8px;
+font-size: 105%;
+}
+h5, h6 {
+border-bottom: 1px solid #ccc;
+font-size: 105%;
+}
+a {
+color: #0033dd;
+text-decoration: none;
+}
+a:hover {
+color: #6666ff; }
+a:visited {
+color: #800080; }
+a:visited:hover {
+color: #BB00BB; }
+a[href^="http:"] {
+text-decoration: underline; }
+a[href^="https:"] {
+text-decoration: underline; }
+
+code > span.kw { color: #555; font-weight: bold; } 
+code > span.dt { color: #902000; } 
+code > span.dv { color: #40a070; } 
+code > span.bn { color: #d14; } 
+code > span.fl { color: #d14; } 
+code > span.ch { color: #d14; } 
+code > span.st { color: #d14; } 
+code > span.co { color: #888888; font-style: italic; } 
+code > span.ot { color: #007020; } 
+code > span.al { color: #ff0000; font-weight: bold; } 
+code > span.fu { color: #900; font-weight: bold; } 
+code > span.er { color: #a61717; background-color: #e3d2d2; } 
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">Step-size-selection algorithm
+benchmark</h1>
+<h4 class="author">Andreï V. Kostyrka, University of Luxembourg</h4>
+<h4 class="date">Created: 2024-06-15, last modified: 2024-06-15,
+compiled: 2025-02-25</h4>
+<div class="abstract">
+<p class="abstract">Abstract</p>
+We compare the relative accuracy of four popular step-size-selection
+algorithms for some common functions. These functions were previously
+tested in the referenced articles.
+</div>
+
+
+<div id="TOC">
+<ul>
+<li><a href="#data-driven-step-size-selection-procedures" id="toc-data-driven-step-size-selection-procedures"><span class="toc-section-number">1</span> Data-driven step-size selection
+procedures</a>
+<ul>
+<li><a href="#curtisreid-1974-bounded-ratio-approach" id="toc-curtisreid-1974-bounded-ratio-approach"><span class="toc-section-number">1.1</span> Curtis–Reid (1974) bounded ratio
+approach</a></li>
+<li><a href="#dumontetvignes-1977-plug-in-approach" id="toc-dumontetvignes-1977-plug-in-approach"><span class="toc-section-number">1.2</span> Dumontet–Vignes (1977) plug-in
+approach</a></li>
+<li><a href="#steplemanwinarsky-1979-accurate-digit-count-estimation" id="toc-steplemanwinarsky-1979-accurate-digit-count-estimation"><span class="toc-section-number">1.3</span> Stepleman–Winarsky (1979)
+accurate-digit count estimation</a></li>
+<li><a href="#mathur-2012-autodx-algorithm" id="toc-mathur-2012-autodx-algorithm"><span class="toc-section-number">1.4</span> Mathur (2012) AutoDX
+algorithm</a></li>
+<li><a href="#robust-grid-search" id="toc-robust-grid-search"><span class="toc-section-number">1.5</span> Robust grid search</a></li>
+<li><a href="#not-letting-intermediate-values-go-to-waste" id="toc-not-letting-intermediate-values-go-to-waste"><span class="toc-section-number">1.6</span> Not letting intermediate values go
+to waste</a></li>
+</ul></li>
+<li><a href="#references" id="toc-references"><span class="toc-section-number">2</span> References</a></li>
+</ul>
+</div>
+
+<p>Load the package first:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="fu">library</span>(pnd)</span></code></pre></div>
+<div id="data-driven-step-size-selection-procedures" class="section level1" number="1">
+<h1><span class="header-section-number">1</span> Data-driven step-size
+selection procedures</h1>
+<p>We showed that the optimal step size depends on the higher-order
+derivatives, which, at the surface level, could be interpreted as the
+chicken-and-egg problem. However, there is no paradox of recursion
+because it is not strictly necessary to know every term in the optimal
+analytical expressions derived above. Multiple data-driven algorithms
+have been proposed since the 1960s that exploit the general shape of the
+total-error function (‘the truth is in the middle’).</p>
+<p>There is a similar problem in non-parametric econometrics: to choose
+the bandwidth for kernel smoothing, e.g. the Parzen–Rosenblatt density
+estimator, one needs to evaluate the second derivative of the true
+density, which is unknown and that the researcher is estimating in the
+first place. The data-driven cross-validation approach involves
+minimising the root-mean-square error of the kernel density estimator
+without knowing the higher-order derivatives of the unknown density. In
+kernel density estimation, the cross-validation function can be
+calculated via convolutions and minimised numerically. In kernel
+smoothing, the cross-validation function can be an aggregate penalty of
+all leave-one-out prediction errors. The shape of the cross-validation
+function is similar to the shape of the total-error function: it shoots
+off for very small or very large inputs. Therefore, the fact that for
+small <span class="math inline">\(h\)</span>, <span class="math inline">\(\varepsilon(h)\)</span> is dominated by <span class="math inline">\(\varepsilon_{\mathrm{r}}\)</span> and for large
+<span class="math inline">\(h\)</span>, by <span class="math inline">\(\varepsilon_{\mathrm{t}}\)</span>, can be used to
+find a satisfactory solution on a reasonable interval without testing
+for sufficient optimality conditions.</p>
+<div id="curtisreid-1974-bounded-ratio-approach" class="section level2" number="1.1">
+<h2><span class="header-section-number">1.1</span> Curtis–Reid (1974)
+bounded ratio approach</h2>
+<p></p>
+<p></p>
+<p><span class="citation">Curtis and Reid (1974)</span> propose a
+solution to choose such a step size for <em>central differences</em>
+that the ratio of the truncation error to the rounding error be confined
+to a chosen reasonable interval: <span class="math display">\[
+\left| \frac{\varepsilon_{\mathrm{t}}}{\varepsilon_{\mathrm{r}}} \right|
+\in [10, 1000]
+\]</span></p>
+<p>The following simplified estimates are proposed for the unknowns:</p>
+<ul>
+<li>The modulus of the true truncation error, <span class="math inline">\(\varepsilon_{\mathrm{t}}(h) := f&#39;(x) -
+\frac{f(x+h)-f(x-h)}{2h}\)</span>, is estimated as the absolute value of
+the difference between the CD and FD-based approximations: <span class="math inline">\(|\hat \varepsilon_{\mathrm{t}}(h)| := |\hat
+f_{\mathrm{CD}}&#39;(x) - \hat f&#39;_{\mathrm{FD}}(x)|\)</span>. This
+estimate is quite conservative (since <span class="math inline">\(|\varepsilon_{\mathrm{t}}(h)| \propto
+h^2\)</span>, but <span class="math inline">\(|\hat
+\varepsilon_{\mathrm{t}}(h)| \propto h\)</span> unless <span class="math inline">\(f&#39;&#39;(x) \approx 0\)</span>), but getting
+the correct order would require one more evaluation.</li>
+<li>The modulus of the rounding error, <span class="math inline">\(\varepsilon_{\mathrm{r}}(h)\)</span>, is
+proportional to <span class="math inline">\(|f(x)|\)</span> (at most
+<span class="math inline">\(0.5|f(x)| \epsilon_{\mathrm{m}}\)</span>).
+(The authors also consider the argument-rounding error due to storing
+<span class="math inline">\([x+h]\)</span> and the change of <span class="math inline">\(f\)</span> due to an extra change of the argument,
+but choosing <span class="math inline">\(h\)</span> as a power of 2
+mitigates this problem.)</li>
+</ul>
+<p>The algorithm is as follows.</p>
+<ol style="list-style-type: decimal">
+<li>Iteration <span class="math inline">\(i=0\)</span>: choose the
+target ratio <span class="math inline">\(u_{\mathrm{aim}} =
+\varepsilon_{\mathrm{t}}(h^*) / \varepsilon_{\mathrm{r}}(h^*)=
+100\)</span>, define the search range <span class="math inline">\([h_{\min}, h_{\max}] = x
+\sqrt[3]{\epsilon_{\mathrm{m}}}  [0.001,\ 1000]\)</span> and the initial
+step size <span class="math inline">\(h_0 = x
+\sqrt[3]{\epsilon_{\mathrm{m}}}\)</span>.</li>
+<li>Compute the ratio <span class="math inline">\(u_i = u(h_i) =
+|\hat\varepsilon_{\mathrm{t}}(h_i) /
+\hat\varepsilon_{\mathrm{r}}(h_i)|\)</span></li>
+<li>If <span class="math inline">\(u_i \in [u_{\mathrm{aim}}/10,
+u_{\mathrm{aim}}\cdot 10]\)</span>, stop.</li>
+<li>If <span class="math inline">\(u_i \not\in [u_{\mathrm{aim}}/10,
+u_{\mathrm{aim}}\cdot 10]\)</span>, take <span class="math inline">\(h_{i+1} = h_i \sqrt{u_{\mathrm{aim}} / \max(u_i,
+1)}\)</span>. If <span class="math inline">\(h_{i+1} = h_i\)</span>, set
+<span class="math inline">\(h^* = h_i\)</span> and terminate. Otherwise,
+check:
+<ol style="list-style-type: decimal">
+<li>If <span class="math inline">\(h_{i+1} \ge  h_{\max}\)</span>, set
+<span class="math inline">\(h_{i+1} = h_{\max}\)</span>. If <span class="math inline">\(h_{i+1} = h_{i} = h_{\max}\)</span>, set <span class="math inline">\(h^* = h_{\max}\)</span> and terminate. Otherwise,
+go to 2.</li>
+<li>If <span class="math inline">\(h_{i+1} \le  h_{\min}\)</span>, set
+<span class="math inline">\(h_{i+1} = h_{\min}\)</span>. If <span class="math inline">\(h_{i+1} = h_{i} = h_{\min}\)</span>, set <span class="math inline">\(h^* = h_{\min}\)</span> and terminate. Otherwise,
+go to 2.</li>
+</ol></li>
+</ol>
+<p>The range <span class="math inline">\([h_{\min}, h_{\max}]\)</span>
+is necessary to avoid looping. If <span class="math inline">\(f(x)\)</span> is exactly linear, then, the
+truncation error is close to zero, and the optimal step size can be very
+large (to minimise the rounding error). To the contrary, if <span class="math inline">\(f(x)\)</span> is even around <span class="math inline">\(x\)</span> but not constant, then, the
+higher-order terms of the Taylor expansion dominate in the total error,
+and the optimal step size is small. <span class="citation">Curtis and
+Reid (1974)</span> do not provide any values <span class="math inline">\([h_{\min}, h_{\max}]\)</span>, but we rely on the
+fact that the optimal step size is exactly <span class="math inline">\(c
+\cdot \sqrt[3]{\epsilon_{\mathrm{m}}}\)</span>, where <span class="math inline">\(c=\sqrt[3]{1.5|f(x) /
+f&#39;&#39;&#39;(x)|}\)</span>, and operate under the reasonable
+assumption that the difference between <span class="math inline">\(f(x)\)</span> and <span class="math inline">\(f&#39;&#39;&#39;(x)\)</span> rarely exceeds 9
+orders of magnitude: <span class="math inline">\(\left| \log_{10}
+\left|\frac{f(x)}{f&#39;&#39;&#39;(x)} \right| \right| \le 9\)</span>
+yields <span class="math inline">\([h_{\min}, h_{\max}] \approx [7x\cdot
+10^{-9}, 7x\cdot 10^{-3}]\)</span>.</p>
+<p>This algorithm is clever because the over-estimation of the
+truncation error is addressed by setting the desired ratio <span class="math inline">\(\varepsilon_{\mathrm{t}}(h^*) /
+\varepsilon_{\mathrm{r}}(h^*)= 100\)</span>. Having <span class="math inline">\(\hat \varepsilon_{\mathrm{t}}(h) = O(h)\)</span>
+instead of <span class="math inline">\(O(h^2)\)</span> implies that the
+solution is of the optimal order for one-sided differences. The ratio of
+the optimal step sized for one- and two-sided differences is <span class="math display">\[
+h^*_{\mathrm{CD}_2} / h^*_{\mathrm{FD}_1} = \frac{\sqrt[3]{1.5 |f|
+\epsilon_{\mathrm{m}} /
+|f&#39;&#39;&#39;|}}{\sqrt{2|f|\epsilon_{\mathrm{m}} / |f&#39;&#39;|}}
+= \frac{2^{-5/6} 3^{1/3} \sqrt[3]{|f&#39;&#39;&#39;|}}{\sqrt[6]{|f|}
+\sqrt[6]{\epsilon_{\mathrm{m}}} \sqrt{|f&#39;&#39;|}}
+\]</span> Since square, cubic etc. roots tend to shrink values towards
+unity, it is reasonable to assume that powers of absolute values of
+<span class="math inline">\(f\)</span> and its derivatives gravitate
+towards unity, the numeric constant in the multiplier is <span class="math inline">\(0.81\)</span>, therefore, the ratio is
+approximately equal to <span class="math inline">\(0.81 /
+\sqrt[6]{\epsilon_{\mathrm{m}}} \approx 329\)</span>. Subsequent
+approximations can be done for <span class="math inline">\(\varepsilon_{\mathrm{t}}(h^*_{\mathrm{FD}_2})\)</span>
+and <span class="math inline">\(\varepsilon_{\mathrm{t}}(h^*_{\mathrm{CD}_2})\)</span>
+and their ratio, but the general idea of this algorithm – find a
+reasonable first-order-accurate step size and inflate it by 1–3 orders
+of magnitude – cannot be made more rigorous without further exact
+calculations, which undermines the point of this quick procedure with as
+few function evaluations as possible.</p>
+<p><strong>Example 1.</strong> <span class="math inline">\(f(x) =
+\sin(x)\)</span> at <span class="math inline">\(x = 1\)</span> with
+<span class="math inline">\(h_0 = 10^{-4}\)</span>. We ignore the
+argument-rounding error and consider only the function-rounding
+error.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a>h0 <span class="ot">&lt;-</span> <span class="fl">1e-4</span></span>
+<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a>x0 <span class="ot">&lt;-</span> <span class="dv">1</span></span>
+<span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a>fun <span class="ot">&lt;-</span> <span class="cf">function</span>(x) <span class="fu">sin</span>(x)</span>
+<span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a>getRatio <span class="ot">&lt;-</span> <span class="cf">function</span>(FUN, x, h) {</span>
+<span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a>  f  <span class="ot">&lt;-</span> <span class="fu">FUN</span>(x)</span>
+<span id="cb2-6"><a href="#cb2-6" tabindex="-1"></a>  fplus  <span class="ot">&lt;-</span> <span class="fu">FUN</span>(x <span class="sc">+</span> h)</span>
+<span id="cb2-7"><a href="#cb2-7" tabindex="-1"></a>  fminus <span class="ot">&lt;-</span> <span class="fu">FUN</span>(x <span class="sc">-</span> h)</span>
+<span id="cb2-8"><a href="#cb2-8" tabindex="-1"></a>  fd <span class="ot">&lt;-</span> (fplus <span class="sc">-</span> f) <span class="sc">/</span> h</span>
+<span id="cb2-9"><a href="#cb2-9" tabindex="-1"></a>  bd <span class="ot">&lt;-</span> (f <span class="sc">-</span> fminus) <span class="sc">/</span> h</span>
+<span id="cb2-10"><a href="#cb2-10" tabindex="-1"></a>  cd <span class="ot">&lt;-</span> (fplus <span class="sc">-</span> fminus) <span class="sc">/</span> h <span class="sc">/</span> <span class="dv">2</span></span>
+<span id="cb2-11"><a href="#cb2-11" tabindex="-1"></a>  et <span class="ot">&lt;-</span> <span class="fu">abs</span>(cd <span class="sc">-</span> fd)</span>
+<span id="cb2-12"><a href="#cb2-12" tabindex="-1"></a>  er <span class="ot">&lt;-</span> <span class="fl">0.5</span> <span class="sc">*</span> <span class="fu">abs</span>(f) <span class="sc">*</span> .Machine<span class="sc">$</span>double.eps <span class="sc">/</span> h</span>
+<span id="cb2-13"><a href="#cb2-13" tabindex="-1"></a>  ret <span class="ot">&lt;-</span> et <span class="sc">/</span> er</span>
+<span id="cb2-14"><a href="#cb2-14" tabindex="-1"></a>  <span class="fu">attr</span>(ret, <span class="st">&quot;vals&quot;</span>) <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">`</span><span class="at">h</span><span class="st">`</span> <span class="ot">=</span> h,</span>
+<span id="cb2-15"><a href="#cb2-15" tabindex="-1"></a>                         <span class="at">bd =</span> bd, <span class="at">cd =</span> cd, <span class="at">fd =</span> fd,</span>
+<span id="cb2-16"><a href="#cb2-16" tabindex="-1"></a>                         <span class="at">e_trunc =</span> et, <span class="at">e_round =</span> er)</span>
+<span id="cb2-17"><a href="#cb2-17" tabindex="-1"></a>  <span class="fu">return</span>(ret)</span>
+<span id="cb2-18"><a href="#cb2-18" tabindex="-1"></a>}</span>
+<span id="cb2-19"><a href="#cb2-19" tabindex="-1"></a><span class="fu">print</span>(u0 <span class="ot">&lt;-</span> <span class="fu">getRatio</span>(<span class="at">FUN =</span> fun, <span class="at">x =</span> x0, <span class="at">h =</span> h0))  <span class="co"># 45035996, too high</span></span>
+<span id="cb2-20"><a href="#cb2-20" tabindex="-1"></a><span class="co">#&gt; [1] 45035996</span></span>
+<span id="cb2-21"><a href="#cb2-21" tabindex="-1"></a><span class="co">#&gt; attr(,&quot;vals&quot;)</span></span>
+<span id="cb2-22"><a href="#cb2-22" tabindex="-1"></a><span class="co">#&gt;            h           bd           cd           fd      e_trunc      e_round </span></span>
+<span id="cb2-23"><a href="#cb2-23" tabindex="-1"></a><span class="co">#&gt; 1.000000e-04 5.403444e-01 5.403023e-01 5.402602e-01 4.207355e-05 9.342205e-13</span></span></code></pre></div>
+<p>The estimated truncation error exceeds the estimated rounding error,
+therefore, <span class="math inline">\(h_0\)</span> is too large.
+Compute the new step length:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a>h1 <span class="ot">&lt;-</span> h0 <span class="sc">*</span> <span class="fu">sqrt</span>(<span class="dv">100</span> <span class="sc">/</span> <span class="fu">max</span>(u0, <span class="dv">1</span>))</span>
+<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a><span class="fu">print</span>(u1 <span class="ot">&lt;-</span> <span class="fu">getRatio</span>(<span class="at">FUN =</span> fun, <span class="at">x =</span> x0, <span class="at">h =</span> h1))</span>
+<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a><span class="co">#&gt; [1] 99.82519</span></span>
+<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a><span class="co">#&gt; attr(,&quot;vals&quot;)</span></span>
+<span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a><span class="co">#&gt;            h           bd           cd           fd      e_trunc      e_round </span></span>
+<span id="cb3-6"><a href="#cb3-6" tabindex="-1"></a><span class="co">#&gt; 1.490116e-07 5.403024e-01 5.403023e-01 5.403022e-01 6.258488e-08 6.269447e-10</span></span></code></pre></div>
+<p>This is almost equal to the desired ratio. Therefore, the search may
+stop here, at <span class="math inline">\(h_1 \approx 1.5\cdot
+10^{-7}\)</span>. The true optimal value is <span class="math inline">\(\sqrt[3]{1.5 \epsilon_{\mathrm{m}} \tan (1)}
+\approx 8 \cdot 10^{-6}\)</span>.</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a>uopt <span class="ot">&lt;-</span> <span class="fu">getRatio</span>(<span class="at">FUN =</span> fun, <span class="at">x =</span> x0, <span class="at">h =</span> (<span class="fl">1.5</span> <span class="sc">*</span> <span class="fu">tan</span>(<span class="dv">1</span>) <span class="sc">*</span> .Machine<span class="sc">$</span>double.eps)<span class="sc">^</span>(<span class="dv">1</span><span class="sc">/</span><span class="dv">3</span>))</span>
+<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a>nd <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="at">step0 =</span> <span class="fu">attr</span>(u0, <span class="st">&quot;vals&quot;</span>)[<span class="st">&quot;cd&quot;</span>], <span class="at">step1 =</span> <span class="fu">attr</span>(u1, <span class="st">&quot;vals&quot;</span>)[<span class="st">&quot;cd&quot;</span>],</span>
+<span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a>        <span class="at">optimal =</span> <span class="fu">attr</span>(uopt, <span class="st">&quot;vals&quot;</span>)[<span class="st">&quot;cd&quot;</span>])</span>
+<span id="cb4-4"><a href="#cb4-4" tabindex="-1"></a><span class="fu">print</span>(total.err <span class="ot">&lt;-</span> <span class="fu">cos</span>(x0) <span class="sc">-</span> nd)</span>
+<span id="cb4-5"><a href="#cb4-5" tabindex="-1"></a><span class="co">#&gt;      step0.cd      step1.cd    optimal.cd </span></span>
+<span id="cb4-6"><a href="#cb4-6" tabindex="-1"></a><span class="co">#&gt;  9.004295e-10  4.256927e-10 -1.026956e-12</span></span></code></pre></div>
+<p>One iteration roughly halved the total error, but it is still 414
+times higher than the minimum one at the optimal step size because the
+procedure shrank <span class="math inline">\(h_0\)</span> too
+aggressively.</p>
+<p><strong>Example 2.</strong> Linear function <span class="math inline">\(f(x) = \pi x + \mathrm{e}\)</span> at <span class="math inline">\(x = 0.1\)</span> with <span class="math inline">\(h_0 = 10^{-5}\)</span>. The truncation error in
+<span class="math inline">\(f_{\text{CD}_2}\)</span> is zero due to
+linearity of <span class="math inline">\(f\)</span>.</p>
+<p>The Curtis–Reid procedure increases the step size at each
+iteration:</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a>h0 <span class="ot">&lt;-</span> <span class="fl">1e-5</span></span>
+<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a>x0 <span class="ot">&lt;-</span> <span class="fl">0.1</span></span>
+<span id="cb5-3"><a href="#cb5-3" tabindex="-1"></a>fun <span class="ot">&lt;-</span> <span class="cf">function</span>(x) pi<span class="sc">*</span>x <span class="sc">+</span> <span class="fu">exp</span>(<span class="dv">1</span>)</span>
+<span id="cb5-4"><a href="#cb5-4" tabindex="-1"></a><span class="fu">print</span>(u0 <span class="ot">&lt;-</span> <span class="fu">getRatio</span>(<span class="at">FUN =</span> fun, <span class="at">x =</span> x0, <span class="at">h =</span> h0))</span>
+<span id="cb5-5"><a href="#cb5-5" tabindex="-1"></a><span class="co">#&gt; [1] 0</span></span>
+<span id="cb5-6"><a href="#cb5-6" tabindex="-1"></a><span class="co">#&gt; attr(,&quot;vals&quot;)</span></span>
+<span id="cb5-7"><a href="#cb5-7" tabindex="-1"></a><span class="co">#&gt;            h           bd           cd           fd      e_trunc      e_round </span></span>
+<span id="cb5-8"><a href="#cb5-8" tabindex="-1"></a><span class="co">#&gt; 1.000000e-05 3.141593e+00 3.141593e+00 3.141593e+00 0.000000e+00 3.366686e-11</span></span>
+<span id="cb5-9"><a href="#cb5-9" tabindex="-1"></a>h1 <span class="ot">&lt;-</span> h0 <span class="sc">*</span> <span class="fu">sqrt</span>(<span class="dv">100</span> <span class="sc">/</span> <span class="fu">max</span>(u0, <span class="dv">1</span>))</span>
+<span id="cb5-10"><a href="#cb5-10" tabindex="-1"></a><span class="fu">print</span>(u1 <span class="ot">&lt;-</span> <span class="fu">getRatio</span>(<span class="at">FUN =</span> fun, <span class="at">x =</span> x0, <span class="at">h =</span> h1))</span>
+<span id="cb5-11"><a href="#cb5-11" tabindex="-1"></a><span class="co">#&gt; [1] 0</span></span>
+<span id="cb5-12"><a href="#cb5-12" tabindex="-1"></a><span class="co">#&gt; attr(,&quot;vals&quot;)</span></span>
+<span id="cb5-13"><a href="#cb5-13" tabindex="-1"></a><span class="co">#&gt;            h           bd           cd           fd      e_trunc      e_round </span></span>
+<span id="cb5-14"><a href="#cb5-14" tabindex="-1"></a><span class="co">#&gt; 1.000000e-04 3.141593e+00 3.141593e+00 3.141593e+00 0.000000e+00 3.366686e-12</span></span>
+<span id="cb5-15"><a href="#cb5-15" tabindex="-1"></a>h2 <span class="ot">&lt;-</span> h1 <span class="sc">*</span> <span class="fu">sqrt</span>(<span class="dv">100</span> <span class="sc">/</span> <span class="fu">max</span>(u0, <span class="dv">1</span>))</span>
+<span id="cb5-16"><a href="#cb5-16" tabindex="-1"></a><span class="fu">print</span>(u2 <span class="ot">&lt;-</span> <span class="fu">getRatio</span>(<span class="at">FUN =</span> fun, <span class="at">x =</span> x0, <span class="at">h =</span> h2))</span>
+<span id="cb5-17"><a href="#cb5-17" tabindex="-1"></a><span class="co">#&gt; [1] 0.6595347</span></span>
+<span id="cb5-18"><a href="#cb5-18" tabindex="-1"></a><span class="co">#&gt; attr(,&quot;vals&quot;)</span></span>
+<span id="cb5-19"><a href="#cb5-19" tabindex="-1"></a><span class="co">#&gt;            h           bd           cd           fd      e_trunc      e_round </span></span>
+<span id="cb5-20"><a href="#cb5-20" tabindex="-1"></a><span class="co">#&gt; 1.000000e-03 3.141593e+00 3.141593e+00 3.141593e+00 2.220446e-13 3.366686e-13</span></span></code></pre></div>
+<p>Here, <span class="math inline">\(h_1 = 10 h_0 = 0.0001\)</span> and
+<span class="math inline">\(h_2 = 10h_1 = 0.001\)</span> because <span class="math inline">\(\hat \varepsilon_{\mathrm{t}} (h_1) \approx
+0\)</span> while <span class="math inline">\(\varepsilon_{\mathrm{t}}
+(h_1) = 0\)</span>, which is why the algorithm is trying to increase the
+step size. Therefore, termination should occur after the second step
+because subsequent <span class="math inline">\(h_2 &gt; h_{\max} = 0.1
+\cdot \sqrt[3]{\epsilon_{\mathrm{m}}} \cdot 1000 \approx
+0.0006\)</span>, and <span class="math inline">\(h_{\max}\)</span> is
+declared the optimal bandwidth.</p>
+<p><strong>Example 3.</strong> Polynomial function <span class="math inline">\(f(x) = x^6 - 2x^4 - 4x^2\)</span> at <span class="math inline">\(x_0 = \sqrt{2}\)</span> with <span class="math inline">\(h_0 = 2^{-16} \approx 1.5\cdot 10^{-5}\)</span>:
+<span class="math inline">\(f&#39;(x_0) = 0\)</span>, but <span class="math inline">\(|f&#39;&#39;|, \ldots, |f^{(V)}| &gt;
+0\)</span>.</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a>h0 <span class="ot">&lt;-</span> <span class="dv">2</span><span class="sc">^-</span><span class="dv">16</span></span>
+<span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a>x0 <span class="ot">&lt;-</span> <span class="fu">sqrt</span>(<span class="dv">2</span>)</span>
+<span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a>fun  <span class="ot">&lt;-</span> <span class="cf">function</span>(x) x<span class="sc">^</span><span class="dv">6</span> <span class="sc">-</span> <span class="dv">2</span><span class="sc">*</span>x<span class="sc">^</span><span class="dv">4</span> <span class="sc">-</span> <span class="dv">4</span><span class="sc">*</span>x<span class="sc">^</span><span class="dv">2</span></span>
+<span id="cb6-4"><a href="#cb6-4" tabindex="-1"></a>fun1 <span class="ot">&lt;-</span> <span class="cf">function</span>(x) <span class="dv">6</span><span class="sc">*</span>x<span class="sc">^</span><span class="dv">5</span> <span class="sc">-</span> <span class="dv">8</span><span class="sc">*</span>x<span class="sc">^</span><span class="dv">3</span> <span class="sc">-</span> <span class="dv">8</span><span class="sc">*</span>x  <span class="co"># f&#39;</span></span>
+<span id="cb6-5"><a href="#cb6-5" tabindex="-1"></a>fun3 <span class="ot">&lt;-</span> <span class="cf">function</span>(x) <span class="dv">120</span><span class="sc">*</span>x<span class="sc">^</span><span class="dv">3</span> <span class="sc">-</span> <span class="dv">48</span><span class="sc">*</span>x       <span class="co"># f&#39;&#39;&#39;</span></span>
+<span id="cb6-6"><a href="#cb6-6" tabindex="-1"></a><span class="fu">print</span>(u0 <span class="ot">&lt;-</span> <span class="fu">getRatio</span>(<span class="at">FUN =</span> fun, <span class="at">x =</span> x0, <span class="at">h =</span> h0))</span>
+<span id="cb6-7"><a href="#cb6-7" tabindex="-1"></a><span class="co">#&gt; [1] 8388608</span></span>
+<span id="cb6-8"><a href="#cb6-8" tabindex="-1"></a><span class="co">#&gt; attr(,&quot;vals&quot;)</span></span>
+<span id="cb6-9"><a href="#cb6-9" tabindex="-1"></a><span class="co">#&gt;             h            bd            cd            fd       e_trunc </span></span>
+<span id="cb6-10"><a href="#cb6-10" tabindex="-1"></a><span class="co">#&gt;  1.525879e-05 -4.882707e-04  1.056469e-08  4.882918e-04  4.882813e-04 </span></span>
+<span id="cb6-11"><a href="#cb6-11" tabindex="-1"></a><span class="co">#&gt;       e_round </span></span>
+<span id="cb6-12"><a href="#cb6-12" tabindex="-1"></a><span class="co">#&gt;  5.820766e-11</span></span>
+<span id="cb6-13"><a href="#cb6-13" tabindex="-1"></a>h1 <span class="ot">&lt;-</span> h0 <span class="sc">*</span> <span class="fu">sqrt</span>(<span class="dv">100</span> <span class="sc">/</span> <span class="fu">max</span>(u0, <span class="dv">1</span>))</span>
+<span id="cb6-14"><a href="#cb6-14" tabindex="-1"></a><span class="fu">print</span>(u1 <span class="ot">&lt;-</span> <span class="fu">getRatio</span>(<span class="at">FUN =</span> fun, <span class="at">x =</span> x0, <span class="at">h =</span> h1))</span>
+<span id="cb6-15"><a href="#cb6-15" tabindex="-1"></a><span class="co">#&gt; [1] 100</span></span>
+<span id="cb6-16"><a href="#cb6-16" tabindex="-1"></a><span class="co">#&gt; attr(,&quot;vals&quot;)</span></span>
+<span id="cb6-17"><a href="#cb6-17" tabindex="-1"></a><span class="co">#&gt;             h            bd            cd            fd       e_trunc </span></span>
+<span id="cb6-18"><a href="#cb6-18" tabindex="-1"></a><span class="co">#&gt;  5.268356e-08 -1.685874e-06  0.000000e+00  1.685874e-06  1.685874e-06 </span></span>
+<span id="cb6-19"><a href="#cb6-19" tabindex="-1"></a><span class="co">#&gt;       e_round </span></span>
+<span id="cb6-20"><a href="#cb6-20" tabindex="-1"></a><span class="co">#&gt;  1.685874e-08</span></span>
+<span id="cb6-21"><a href="#cb6-21" tabindex="-1"></a>hopt <span class="ot">&lt;-</span> <span class="fu">abs</span>(<span class="fl">1.5</span> <span class="sc">*</span> <span class="fu">fun</span>(x0) <span class="sc">/</span> <span class="fu">fun3</span>(x0) <span class="sc">*</span> .Machine<span class="sc">$</span>double.eps)<span class="sc">^</span>(<span class="dv">1</span><span class="sc">/</span><span class="dv">3</span>)</span>
+<span id="cb6-22"><a href="#cb6-22" tabindex="-1"></a>uopt <span class="ot">&lt;-</span> <span class="fu">getRatio</span>(<span class="at">FUN =</span> fun, <span class="at">x =</span> x0, <span class="at">h =</span> hopt)</span>
+<span id="cb6-23"><a href="#cb6-23" tabindex="-1"></a>fp.est <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="at">step0 =</span> <span class="fu">attr</span>(u0, <span class="st">&quot;vals&quot;</span>)[<span class="st">&quot;cd&quot;</span>], <span class="at">step1 =</span> <span class="fu">attr</span>(u1, <span class="st">&quot;vals&quot;</span>)[<span class="st">&quot;cd&quot;</span>],</span>
+<span id="cb6-24"><a href="#cb6-24" tabindex="-1"></a>            <span class="at">optimal =</span> <span class="fu">attr</span>(uopt, <span class="st">&quot;vals&quot;</span>)[<span class="st">&quot;cd&quot;</span>])</span>
+<span id="cb6-25"><a href="#cb6-25" tabindex="-1"></a><span class="fu">print</span>(total.err <span class="ot">&lt;-</span> <span class="fu">fun1</span>(x0) <span class="sc">-</span> fp.est)</span>
+<span id="cb6-26"><a href="#cb6-26" tabindex="-1"></a><span class="co">#&gt;      step0.cd      step1.cd    optimal.cd </span></span>
+<span id="cb6-27"><a href="#cb6-27" tabindex="-1"></a><span class="co">#&gt; -1.056469e-08  5.329071e-15  5.329071e-15</span></span></code></pre></div>
+<p>Note that <span class="math inline">\(f&#39;(\sqrt{2}) = 0\)</span>,
+but <span class="math inline">\([\sqrt{2}] - \sqrt{2} \approx
+10^{-17}\)</span>, and <span class="math inline">\(f&#39;([\sqrt{2}])
+\approx 5\cdot 10^{-15}\)</span>. Remarkably, the optimal step size,
+being 40 times larger than <span class="math inline">\(h_1\)</span>,
+yields the same total error.</p>
+</div>
+<div id="dumontetvignes-1977-plug-in-approach" class="section level2" number="1.2">
+<h2><span class="header-section-number">1.2</span> Dumontet–Vignes
+(1977) plug-in approach</h2>
+<p><span class="citation">Dumontet and Vignes (1977)</span> replace
+<span class="math inline">\(f&#39;&#39;&#39;(x)\)</span> in the
+expression for the optimal <span class="math inline">\(h_{\mathrm{CD}_2}\)</span> by its rough guess.
+First, they suggest that the step size <span class="math inline">\(h\)</span> in <span class="math inline">\(f(x \pm
+h)\)</span> should belong to <span class="math inline">\([x\cdot 2^{-n},
+x\cdot 2^{n}]\)</span>, where <span class="math inline">\(n\)</span> is
+the number of bits in the mantissa, and the step size in <span class="math inline">\(f&#39;&#39;&#39;_{\mathrm{FD}}\)</span> should
+belong to <span class="math inline">\([x\cdot 2^{-n+1}, x\cdot
+2^{n-1}]\)</span>. Estimate the dominating error (truncation or
+rounding) and, depending on the ratio, bisect the interval for the step
+size so that neither of the errors in the third derivative is
+disproportionately large. Then, approximation errors can be calculated
+using various quantities obtained at the steps of this procedure.</p>
+<p>These authors also assume that the relative rounding error <span class="math inline">\([f(x)]/f(x)\)</span> is uniformly distributed
+between <span class="math inline">\([-\epsilon_{\mathrm{m}}/2,
++\epsilon_{\mathrm{m}}/2]\)</span>, but instead of bounding <span class="math display">\[
+\varepsilon_{\mathrm{trunc}} + \varepsilon_{\mathrm{round}} \le
+\frac{|f&#39;&#39;&#39;(x)|}{6}h^2  + \frac{0.5|f(x)|
+\epsilon_{\mathrm{m}}}{h},
+\]</span> they estimate the <em>expected</em> absolute sum <span class="math inline">\(|\varepsilon_{\mathrm{trunc}} +
+\varepsilon_{\mathrm{round}}|\)</span>. If <span class="math inline">\(\xi\)</span> has a triangular distribution on
+<span class="math inline">\([-\varepsilon_{\text{mach}},
+\varepsilon_{\text{mach}}]\)</span>, then, the variance of <span class="math inline">\(\xi\)</span> is <span class="math inline">\(\varepsilon_{\text{mach}}/6\)</span> and the
+expected value of <span class="math inline">\(|\xi|\)</span> is <span class="math inline">\(\varepsilon_{\text{mach}}/3\)</span>. However, the
+distribution of <span class="math inline">\(|\varepsilon_{\text{trunc}}
++ \varepsilon_{\text{round}}|\)</span> is more complicated, and the
+authors refer to the result that its expected absolute value is equal to
+<span class="math inline">\(c_1 /h + c_2 h^5 - c_3 h^8\)</span>, where
+the constants <span class="math inline">\(c_1, c_2, c_3\)</span> depend
+on <span class="math inline">\(\varepsilon_{\text{mach}}\)</span>, <span class="math inline">\(f(x)\)</span>, and <span class="math inline">\(f&#39;&#39;&#39;(x)\)</span>. Their optimal step
+size is <span class="math display">\[
+h^* = \sqrt[3]{\frac{0.835 \epsilon_{\mathrm{m}}
+|f(x)|}{|f&#39;&#39;&#39;(x)|}}
+\]</span></p>
+<p>Then</p>
+<p></p>
+</div>
+<div id="steplemanwinarsky-1979-accurate-digit-count-estimation" class="section level2" number="1.3">
+<h2><span class="header-section-number">1.3</span> Stepleman–Winarsky
+(1979) accurate-digit count estimation</h2>
+<p>This work suggests starting with a large enough step to ensure that
+the accurate digits lost at the early steps are due only to the
+truncation error and shrinking the reduce the truncation error until the
+change in the number of accurate digits is no longer monotone due to the
+substantial rounding-error contribution. The number of digits lost is
+proportional to the value of the error function, and a change in this
+number due to a step reduction is the slope of the error curve.</p>
+</div>
+<div id="mathur-2012-autodx-algorithm" class="section level2" number="1.4">
+<h2><span class="header-section-number">1.4</span> Mathur (2012) AutoDX
+algorithm</h2>
+<p>A more elaborate numerical method with an in-depth theoretical
+derivation and multiple graphic examples is proposed in <span class="citation">Mathur (2012)</span> and summarised under the name
+‘AutoDX’ in <span class="citation">Mathur (2013)</span>. AutoDX is
+conceptually similar to the algorithm by <span class="citation">Stepleman and Winarsky (1979)</span>. It addresses the
+shortcomings of the latter, namely failure due to the inappropriately
+large initial step size and false optima. AutoDX works with all
+functions analytic in the neighbourhood of the point of interest.</p>
+<p>The general idea of the algorithm is based on the fact that the total
+first-difference-based approximation error is dominated by the
+truncation error for step sizes larger than the optimal size. Moreover,
+the relationship between the two on the log-log scale is approximately
+linear with slope <span class="math inline">\(a\)</span>. Therefore, for
+some initial guess <span class="math inline">\(h_0 &gt; h^*\)</span> and
+a reduction ratio <span class="math inline">\(t\)</span> (preferably an
+inverse power of 2), the sequence of truncation error estimates (in
+logarithms) evaluated at <span class="math inline">\(h_0, t h_0, t^2
+h_0, \ldots\)</span> forms a line with slope <span class="math inline">\(a\)</span> on the logarithmic grid. Subsequent
+reduction of the step size by a factor <span class="math inline">\(t\)</span> in the valid truncation error range
+goes on until a substantial deviation of the truncation error estimate
+from the straight line, indicating that the rounding error has taken
+over. The algorithm is stopped, and the last valid step size <span class="math inline">\(h_i\)</span> is corrected – divided by the factor
+<span class="math inline">\(\sqrt[m+a]{t^*}\)</span>, where <span class="math inline">\(t^* := (1+t^{-m})/(1-t^a) &gt; 1\)</span> – to
+adjust for the fact that the estimated total error is slightly larger
+than the true error for small step sizes.</p>
+<p>The AutoDX algorithm addresses the problem that the truncation error
+for large step sizes might cease to be a monotonic function of <span class="math inline">\(h\)</span>. Using the notation from above, for
+accuracy order <span class="math inline">\(a\)</span> and derivative
+order <span class="math inline">\(m\)</span>, the discrepancy between
+the true <span class="math inline">\(m\)</span><sup>th</sup> derivative
+and its finite-difference approximation is equal to <span class="math inline">\(c_1 f^{(m+a)} (x+c_2) h^a\)</span>, where <span class="math inline">\(c_1\)</span> is the factorial fraction and <span class="math inline">\(c_2\)</span> is the intermediate point in the
+Lagrange form of the remainder. Therefore, if in any of the iterative
+algorithms above, a wrong guess is made for the initial step size, the
+estimated truncation error may <em>decrease</em> w.r.t. <span class="math inline">\(h\)</span>, not increase. E.g. if <span class="math inline">\(f(x) = \sin(x)\)</span> and <span class="math inline">\(x=\pi/4\)</span>, if <span class="math inline">\(h
+&gt; 1\)</span>, the estimate of the truncation error becomes erratic.
+One may argue that <span class="math inline">\(h_0 = 1\)</span> is a
+contrived initial guess (not in the vicinity of <span class="math inline">\(\sqrt[3]{\varepsilon_{\text{mach}}} \approx 6\cdot
+10^{-6}\)</span>). However, in applied work, many functions take vector
+arguments with coordinates spanning multiple orders of magnitude, and
+for some functions, even <span class="math inline">\(h=6\cdot
+10^{-6}\)</span> may be too high. This is common in applied econometrics
+and numerical optimisation where the optimal parameter lies close to the
+boundary space, e.g. the constant in the dynamic conditional variance
+specification (GARCH-like models) may be equal to <span class="math inline">\(10^{-6}\)</span>; in this case, <span class="math inline">\(x-h \approx -5x\)</span>, causing the
+log-likelihood function based on near-zero dynamic variances to exhibit
+wildly unstable behaviour (on the brink of returning <code>NA</code>
+values due to undefined operations with invalid inputs). A concrete
+example of such a function is <span class="math inline">\(f(x) =
+\sin(x^2 + 10^6 x)\)</span>, where the abnormal behaviour of the
+estimated truncation error starts at <span class="math inline">\(3\cdot
+10^{-6}\)</span>, i.e. the rule-of-thumb initial value leads to the
+wrong direction of step-size search.</p>
+<p>Another source of error in iterative algorithms is the presence of
+‘stray minima’ of the total error function arising from identical
+successive approximations <span class="math inline">\([f([x+h])] =
+[f([x-h])]\)</span>. This is possible for small <span class="math inline">\(h\)</span>.</p>
+<p>This phenomenon can be illustrated with a simple plot: compute the
+numerical derivative of <span class="math inline">\(f(x) =
+\sin(x)\)</span> at <span class="math inline">\(x = \pi/4\)</span>. Let
+<code>dsin()</code> represent the 2<sup>nd</sup>-order-accurate
+central-difference approximation, and let <code>totErr()</code> be the
+estimated approximation error of <span class="math inline">\(f&#39;(x)\)</span> obtained as if one were to
+compute the Richardson extrapolation with two different step sizes – but
+with the formula transformed to explicitly solve for the unknown
+2<sup>nd</sup>-order error.</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a>dsin <span class="ot">&lt;-</span> <span class="cf">function</span>(x, h) (<span class="fu">sin</span>(x<span class="sc">+</span>h) <span class="sc">-</span> <span class="fu">sin</span>(x<span class="sc">-</span>h)) <span class="sc">/</span> h <span class="sc">/</span> <span class="dv">2</span></span>
+<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a>totErr <span class="ot">&lt;-</span> <span class="cf">function</span>(x, h, <span class="at">t =</span> <span class="fl">0.5</span>) (<span class="fu">dsin</span>(x, t<span class="sc">*</span>h) <span class="sc">-</span> <span class="fu">dsin</span>(x, h)) <span class="sc">/</span> (<span class="dv">1</span> <span class="sc">-</span> t<span class="sc">^</span><span class="dv">2</span>)</span>
+<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a>hgrid <span class="ot">&lt;-</span> <span class="dv">2</span><span class="sc">^</span><span class="fu">seq</span>(<span class="sc">-</span><span class="dv">52</span>, <span class="dv">12</span>, <span class="fl">0.5</span>)</span>
+<span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a><span class="fu">suppressWarnings</span>(<span class="fu">plot</span>(hgrid, <span class="fu">totErr</span>(<span class="at">x =</span> pi<span class="sc">/</span><span class="dv">4</span>, hgrid), <span class="at">log =</span> <span class="st">&quot;xy&quot;</span>,</span>
+<span id="cb7-5"><a href="#cb7-5" tabindex="-1"></a>     <span class="at">main =</span> <span class="st">&quot;Truncation + round-off error of d/dx sin(x) at x = pi/4&quot;</span>,</span>
+<span id="cb7-6"><a href="#cb7-6" tabindex="-1"></a>     <span class="at">bty =</span> <span class="st">&quot;n&quot;</span>, <span class="at">xlab =</span> <span class="st">&quot;Step size&quot;</span>, <span class="at">ylab =</span> <span class="st">&quot;Sum of errors&quot;</span>))</span></code></pre></div>
+<p><img role="img" src="data:image/png;base64,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" width="10cm" /></p>
+<p>For large step sizes, the total error behaves erratically, and for
+step sizes <span class="math inline">\(h &gt; h^*\)</span> and <span class="math inline">\(h &lt; 1\)</span>, the logarithmic slope is equal
+to the accuracy order – in this case, <span class="math inline">\(a=2\)</span>:</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a>h   <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="dv">2</span><span class="sc">^-</span><span class="dv">8</span>, <span class="dv">2</span><span class="sc">^-</span><span class="dv">9</span>)</span>
+<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a>te  <span class="ot">&lt;-</span> <span class="fu">totErr</span>(<span class="at">x =</span> pi<span class="sc">/</span><span class="dv">4</span>, <span class="at">h =</span> h)</span>
+<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a><span class="fu">print</span>(<span class="fu">diff</span>(<span class="fu">log</span>(te)) <span class="sc">/</span> <span class="fu">diff</span>(<span class="fu">log</span>(h)))</span>
+<span id="cb8-4"><a href="#cb8-4" tabindex="-1"></a><span class="co">#&gt; [1] 1.999999</span></span></code></pre></div>
+<p>Recommendations:</p>
+<ol style="list-style-type: decimal">
+<li>For the initial step size <span class="math inline">\(h_0\)</span>,
+choose a power of 2 to avoid representation errors (step sizes other
+than <span class="math inline">\(2^j\)</span> are not presentable in
+binary). This ensures that <span class="math inline">\([x+h]\)</span>
+and <span class="math inline">\([x-h]\)</span> have full precision and
+both are exactly centred at <span class="math inline">\(x\)</span>. The
+default value in the implementation uses a power of two.</li>
+<li>For the step-size reduction ratio, choose a power of 2
+(e.g. 0.5).</li>
+</ol>
+<p></p>
+</div>
+<div id="robust-grid-search" class="section level2" number="1.5">
+<h2><span class="header-section-number">1.5</span> Robust grid
+search</h2>
+<p></p>
+<p></p>
+<p><span class="citation">Mathur (2012)</span> mentions that the <span class="citation">Stepleman and Winarsky (1979)</span> algorithms
+performs reliably when the initial step size <span class="math inline">\(h_0\)</span> is chosen well. The requirements
+imposed on <span class="math inline">\(h_0\)</span> are the following:
+it should be large enough for the truncation error to be dominant, but
+not too large that the estimated truncated error decreases with the step
+size growth and ceases to be a valid approximation of the true
+truncation error.</p>
+<p>None of the previous algorithms explicitly make use of the parallel
+capabilities of modern processors. The following improvements can be
+made for speed gains: * In the Curtis–Reid approach, the function values
+at <span class="math inline">\((x-h, x, x+h)\)</span> can be computed im
+parallel for forward and central differences at each step, which speeds
+it up by a factor of 3; * In the Dumontet–Vignes approach, the first and
+third derivatives can be computed in parallel on the symmetric 2-point
+and 4-point stencils, respectively, which is 2–3 times faster; * The
+Stepleman–Winarsky algorithm is a sequence of condition checks; the
+authors remark that the central differences should be computed for at
+least 3 step sizes, which provides the opportunity for a 6-fold time
+decrease. * Mathur does not specify the limits for the step-size
+sequence length to determine the range validity; nevertheless, it is
+trivial to pre-emptively compute the central differences for multiple
+sizes because this approach is not slower than the serial version even
+if the algorithm has to terminate immediately.</p>
+<p></p>
+<p>Replace Mathur’s counter incrementing with one parallel grid search
+and find the range where the estimated truncation slope is closest to
+<span class="math inline">\(a\)</span> – should be faster without any
+side effects</p>
+</div>
+<div id="not-letting-intermediate-values-go-to-waste" class="section level2" number="1.6">
+<h2><span class="header-section-number">1.6</span> Not letting
+intermediate values go to waste</h2>
+<p></p>
+<p>All aforementioned procedures perform an iterative numeric search by
+evaluating <span class="math inline">\(f(x)\)</span> multiple times,
+gauging the estimation, truncation, and total errors, and suggesting a
+new step size at the next iteration that is supposed to reduce the
+overall error. In Section~<span class="math inline">\(\ref{sec:basic}\)</span>, we established that more
+evaluations of a function allow a high accuracy degree because <span class="math inline">\(a \le n - m\)</span>, and raising <span class="math inline">\(n\)</span> increases the highest potential
+accuracy order <span class="math inline">\(a\)</span>.</p>
+<p>On one hand, when multiple step sizes are attempted in numerical
+search procedures, function values at the extra evaluation grid points
+are basically free bread descending from heaven. One can collect all
+intermediate evaluations and calculate the optimal weights for this
+empirically driven stencil. On the other hand, step-size search
+iterations usually result in changes of the candidate values of <span class="math inline">\(h\)</span> by orders of magnitude. Example 1 in
+Section~<span class="math inline">\(\ref{sec:cr}\)</span> show two
+iteration of the search: <span class="math inline">\(h_0 =
+10^{-4}\)</span>, <span class="math inline">\(h_1 \approx 1.5 \cdot
+10^{-7}\)</span>. Since central differences are evaluated with both step
+sizes, the researcher has the grid <span class="math inline">\(x +
+(-h_0, -h_1, 0, h_1, h_0)\)</span> and respective function values.
+Rewriting the grid as a stencil with a human-readable normalisation of
+the smallest distance between its elements to one yields <span class="math inline">\(b_n \approx \{-671, -1, 0, 1, 671\}\)</span>.</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a>h <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="fl">1e-4</span>, <span class="fl">1.490116e-07</span>)</span>
+<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a>b <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="sc">-</span>h, <span class="dv">0</span>, <span class="fu">rev</span>(h)) <span class="sc">/</span> <span class="fu">min</span>(h)</span>
+<span id="cb9-3"><a href="#cb9-3" tabindex="-1"></a>fc <span class="ot">&lt;-</span> <span class="fu">fdCoef</span>(<span class="at">deriv.order =</span> <span class="dv">1</span>, <span class="at">stencil =</span> b)</span>
+<span id="cb9-4"><a href="#cb9-4" tabindex="-1"></a><span class="fu">print</span>(fc, <span class="dv">3</span>)</span>
+<span id="cb9-5"><a href="#cb9-5" tabindex="-1"></a><span class="co">#&gt; $stencil</span></span>
+<span id="cb9-6"><a href="#cb9-6" tabindex="-1"></a><span class="co">#&gt; [1] -671   -1    1  671</span></span>
+<span id="cb9-7"><a href="#cb9-7" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb9-8"><a href="#cb9-8" tabindex="-1"></a><span class="co">#&gt; $weights</span></span>
+<span id="cb9-9"><a href="#cb9-9" tabindex="-1"></a><span class="co">#&gt; x-671.09h      x-1h      x+1h x+671.09h </span></span>
+<span id="cb9-10"><a href="#cb9-10" tabindex="-1"></a><span class="co">#&gt;  1.65e-09 -5.00e-01  5.00e-01 -1.65e-09 </span></span>
+<span id="cb9-11"><a href="#cb9-11" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb9-12"><a href="#cb9-12" tabindex="-1"></a><span class="co">#&gt; attr(,&quot;remainder.coef&quot;)</span></span>
+<span id="cb9-13"><a href="#cb9-13" tabindex="-1"></a><span class="co">#&gt; [1] -4.61e-12</span></span>
+<span id="cb9-14"><a href="#cb9-14" tabindex="-1"></a><span class="co">#&gt; attr(,&quot;accuracy.order&quot;)</span></span>
+<span id="cb9-15"><a href="#cb9-15" tabindex="-1"></a><span class="co">#&gt; requested effective </span></span>
+<span id="cb9-16"><a href="#cb9-16" tabindex="-1"></a><span class="co">#&gt;        NA         3 </span></span>
+<span id="cb9-17"><a href="#cb9-17" tabindex="-1"></a><span class="co">#&gt; attr(,&quot;expansion&quot;)</span></span>
+<span id="cb9-18"><a href="#cb9-18" tabindex="-1"></a><span class="co">#&gt; [1] &quot;f&#39; - 4.6073e-12 f&#39;&#39;&#39; + ...&quot;</span></span></code></pre></div>
+<p>The optimal weights for the outermost elements of this stencil are
+tiny (<span class="math inline">\(\approx 1.65\cdot 10^{-9}\)</span>).
+In addition, the `best’ step size is the minimiser of the quantity that
+depends on the coefficients in the Taylor expansion. The further the
+evaluation points are away from the Taylor polynomial centre, the higher
+the coefficients on its terms, which are a power function of <span class="math inline">\((b_i h)\)</span>. Eliminating the terms not
+related to the derivative on interest requires, as described above as
+the intuition of the method, solving a system of linear equations, and
+numerical solvers can be unstable when the input numbers are huge. As a
+consequence, the suggested weights <span class="math inline">\(w_i\)</span> may suffer from ill conditioning of
+the matrix of the Taylor polynomial coefficients that take large values
+far away from the centre.</p>
+<p>This raises the question: how accurate is this four-term weighted sum
+where two weights are tiny?</p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" tabindex="-1"></a><span class="fu">cos</span>(<span class="dv">1</span>) <span class="sc">-</span> <span class="fu">sum</span>(<span class="fu">sin</span>(<span class="dv">1</span> <span class="sc">+</span> fc<span class="sc">$</span>stencil <span class="sc">*</span> h[<span class="dv">2</span>]) <span class="sc">*</span> fc<span class="sc">$</span>weights) <span class="sc">/</span> h[<span class="dv">2</span>]</span>
+<span id="cb10-2"><a href="#cb10-2" tabindex="-1"></a><span class="co">#&gt; [1] 1.040656e-09</span></span></code></pre></div>
+<p>This error value is slightly less than the error of <span class="math inline">\(f&#39;_{\mathrm{CD}_2}(1, h_1)\)</span>, <span class="math inline">\(4.3\cdot 10^{-1}\)</span>.</p>
+<p>Nevertheless, this error reduction could be a pure coincidence that
+would not hold for the majority of representable floating-point numbers.
+Therefore, we run a small simulation to determine the potential benefits
+and dangers owing to the presence of far-away points on the stencil that
+were recorded at the previous search steps.</p>
+<p>Consider a sample of 10,000 random uniform values on <span class="math inline">\([0, 2\pi]\)</span> and <span class="math inline">\(f(x) = sin(x)\)</span>. For each of these values,
+compute four numerical derivatives: 1. <span class="math inline">\(f&#39;_{\mathrm{CD}_2}(x,
+h_{\mathrm{opt}})\)</span> with analytical theoretical <span class="math inline">\(h_{\mathrm{opt}}\)</span> (oracle, infeasible in
+practice); 2. <span class="math inline">\(f&#39;_{\mathrm{CD}_2}(x,
+\sqrt[3]{\epsilon_{\mathrm{m}}})\)</span> (naïve rule of thumb); 3.
+<span class="math inline">\(f&#39;_{\mathrm{CD}_2}(x,
+h^*_{\mathrm{CR}})\)</span> with <span class="math inline">\(h^*_{\mathrm{CR}}\)</span> provided by the
+Curtis–Reid procedure; 4. <span class="math inline">\(f&#39;\)</span>
+with <span class="math inline">\(h_{\mathrm{opt}}\)</span> and the
+stencil <span class="math inline">\(b = (-500, -1, 1, 500)\)</span>.</p>
+<p></p>
+<p>This simulation aims to determine the behaviour of the absolute
+approximation error under difference step-size selection rules and weigh
+the pros and cons of extra grid points that are far away.</p>
+<p>!!! TODO: add fast functions like sin(1000*x) or slow like log(x) at
+x = 13 – and check the convergence radius</p>
+<div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" tabindex="-1"></a>hOpt <span class="ot">&lt;-</span> <span class="cf">function</span>(x) (<span class="fl">1.5</span> <span class="sc">*</span> <span class="fu">abs</span>(<span class="fu">tan</span>(x)) <span class="sc">*</span> .Machine<span class="sc">$</span>double.eps)<span class="sc">^</span>(<span class="dv">1</span><span class="sc">/</span><span class="dv">3</span>)</span>
+<span id="cb11-2"><a href="#cb11-2" tabindex="-1"></a></span>
+<span id="cb11-3"><a href="#cb11-3" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">1</span>)</span>
+<span id="cb11-4"><a href="#cb11-4" tabindex="-1"></a>xgrid <span class="ot">&lt;-</span> <span class="fu">sort</span>(<span class="fu">runif</span>(<span class="dv">10000</span>, <span class="at">max =</span> <span class="dv">2</span><span class="sc">*</span>pi))</span>
+<span id="cb11-5"><a href="#cb11-5" tabindex="-1"></a>hgrid <span class="ot">&lt;-</span> <span class="fu">hOpt</span>(xgrid)</span>
+<span id="cb11-6"><a href="#cb11-6" tabindex="-1"></a>df1 <span class="ot">&lt;-</span> (<span class="fu">sin</span>(xgrid <span class="sc">+</span> hgrid) <span class="sc">-</span> <span class="fu">sin</span>(xgrid <span class="sc">-</span> hgrid)) <span class="sc">/</span> hgrid <span class="sc">/</span> <span class="dv">2</span></span>
+<span id="cb11-7"><a href="#cb11-7" tabindex="-1"></a>df2 <span class="ot">&lt;-</span> (<span class="fu">sin</span>(xgrid <span class="sc">+</span> <span class="fl">7e-6</span>) <span class="sc">-</span> <span class="fu">sin</span>(xgrid <span class="sc">-</span> <span class="fl">7e-6</span>)) <span class="sc">/</span> <span class="fl">7e-6</span> <span class="sc">/</span> <span class="dv">2</span></span>
+<span id="cb11-8"><a href="#cb11-8" tabindex="-1"></a>fc  <span class="ot">&lt;-</span> <span class="fu">fdCoef</span>(<span class="at">deriv.order =</span> <span class="dv">1</span>, <span class="at">stencil =</span> <span class="fu">c</span>(<span class="sc">-</span><span class="dv">500</span>, <span class="sc">-</span><span class="dv">1</span>, <span class="dv">1</span>, <span class="dv">500</span>))</span>
+<span id="cb11-9"><a href="#cb11-9" tabindex="-1"></a>h4grid <span class="ot">&lt;-</span> <span class="fu">outer</span>(hgrid, <span class="fu">c</span>(<span class="sc">-</span><span class="dv">500</span>, <span class="sc">-</span><span class="dv">1</span>, <span class="dv">1</span>, <span class="dv">500</span>))</span>
+<span id="cb11-10"><a href="#cb11-10" tabindex="-1"></a>df4 <span class="ot">&lt;-</span> <span class="fu">rowSums</span>(<span class="fu">sweep</span>(<span class="fu">sin</span>(xgrid <span class="sc">+</span> h4grid), <span class="dv">2</span>, fc<span class="sc">$</span>weights, <span class="st">&quot;*&quot;</span>)) <span class="sc">/</span> hgrid</span>
+<span id="cb11-11"><a href="#cb11-11" tabindex="-1"></a>df.true <span class="ot">&lt;-</span> <span class="fu">cos</span>(xgrid)</span>
+<span id="cb11-12"><a href="#cb11-12" tabindex="-1"></a>err <span class="ot">&lt;-</span> df.true <span class="sc">-</span> <span class="fu">data.frame</span>(df1, df2, df4)</span>
+<span id="cb11-13"><a href="#cb11-13" tabindex="-1"></a>abserr <span class="ot">&lt;-</span> <span class="fu">abs</span>(err)</span>
+<span id="cb11-14"><a href="#cb11-14" tabindex="-1"></a></span>
+<span id="cb11-15"><a href="#cb11-15" tabindex="-1"></a><span class="fu">print</span>(<span class="fu">summary</span>(err))</span>
+<span id="cb11-16"><a href="#cb11-16" tabindex="-1"></a><span class="co">#&gt;       df1                  df2                  df4            </span></span>
+<span id="cb11-17"><a href="#cb11-17" tabindex="-1"></a><span class="co">#&gt;  Min.   :-5.990e-10   Min.   :-1.167e-11   Min.   :-5.991e-10  </span></span>
+<span id="cb11-18"><a href="#cb11-18" tabindex="-1"></a><span class="co">#&gt;  1st Qu.:-8.680e-12   1st Qu.:-1.960e-12   1st Qu.:-6.979e-12  </span></span>
+<span id="cb11-19"><a href="#cb11-19" tabindex="-1"></a><span class="co">#&gt;  Median : 1.088e-12   Median : 2.441e-12   Median :-3.960e-14  </span></span>
+<span id="cb11-20"><a href="#cb11-20" tabindex="-1"></a><span class="co">#&gt;  Mean   : 4.590e-14   Mean   : 2.013e-12   Mean   : 3.850e-14  </span></span>
+<span id="cb11-21"><a href="#cb11-21" tabindex="-1"></a><span class="co">#&gt;  3rd Qu.: 8.156e-12   3rd Qu.: 5.335e-12   3rd Qu.: 7.403e-12  </span></span>
+<span id="cb11-22"><a href="#cb11-22" tabindex="-1"></a><span class="co">#&gt;  Max.   : 5.076e-10   Max.   : 1.685e-11   Max.   : 5.076e-10</span></span>
+<span id="cb11-23"><a href="#cb11-23" tabindex="-1"></a><span class="fu">print</span>(<span class="fu">summary</span>(abserr))</span>
+<span id="cb11-24"><a href="#cb11-24" tabindex="-1"></a><span class="co">#&gt;       df1                 df2                 df4           </span></span>
+<span id="cb11-25"><a href="#cb11-25" tabindex="-1"></a><span class="co">#&gt;  Min.   :6.400e-15   Min.   :2.220e-16   Min.   :5.000e-16  </span></span>
+<span id="cb11-26"><a href="#cb11-26" tabindex="-1"></a><span class="co">#&gt;  1st Qu.:3.484e-12   1st Qu.:2.226e-12   1st Qu.:2.388e-12  </span></span>
+<span id="cb11-27"><a href="#cb11-27" tabindex="-1"></a><span class="co">#&gt;  Median :8.320e-12   Median :4.263e-12   Median :7.164e-12  </span></span>
+<span id="cb11-28"><a href="#cb11-28" tabindex="-1"></a><span class="co">#&gt;  Mean   :1.667e-11   Mean   :4.463e-12   Mean   :1.589e-11  </span></span>
+<span id="cb11-29"><a href="#cb11-29" tabindex="-1"></a><span class="co">#&gt;  3rd Qu.:2.132e-11   3rd Qu.:5.990e-12   3rd Qu.:2.063e-11  </span></span>
+<span id="cb11-30"><a href="#cb11-30" tabindex="-1"></a><span class="co">#&gt;  Max.   :5.990e-10   Max.   :1.685e-11   Max.   :5.991e-10</span></span>
+<span id="cb11-31"><a href="#cb11-31" tabindex="-1"></a></span>
+<span id="cb11-32"><a href="#cb11-32" tabindex="-1"></a>squish <span class="ot">&lt;-</span> <span class="cf">function</span>(x, <span class="at">pow =</span> <span class="dv">1</span><span class="sc">/</span><span class="dv">6</span>, <span class="at">shift =</span> <span class="fl">1e-12</span>) ((<span class="fu">abs</span>(x) <span class="sc">+</span> shift)<span class="sc">^</span>pow <span class="sc">-</span> shift<span class="sc">^</span>pow) <span class="sc">*</span> <span class="fu">sign</span>(x)</span>
+<span id="cb11-33"><a href="#cb11-33" tabindex="-1"></a>xnice <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="dv">0</span>, <span class="dv">2</span><span class="sc">*</span>pi, <span class="at">length.out =</span> <span class="dv">401</span>)</span>
+<span id="cb11-34"><a href="#cb11-34" tabindex="-1"></a><span class="fu">plot</span>(xnice, <span class="fu">hOpt</span>(xnice), <span class="at">type =</span> <span class="st">&quot;l&quot;</span>, <span class="at">log =</span> <span class="st">&quot;y&quot;</span>, <span class="at">main =</span> <span class="st">&quot;Optimal step size for sin(x)&quot;</span>, <span class="at">bty =</span> <span class="st">&quot;n&quot;</span>)</span>
+<span id="cb11-35"><a href="#cb11-35" tabindex="-1"></a><span class="co">#&gt; Warning in xy.coords(x, y, xlabel, ylabel, log): 1 y value &lt;= 0 omitted from</span></span>
+<span id="cb11-36"><a href="#cb11-36" tabindex="-1"></a><span class="co">#&gt; logarithmic plot</span></span></code></pre></div>
+<p><img role="img" src="data:image/png;base64,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" width="10cm" /></p>
+<div class="sourceCode" id="cb12"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" tabindex="-1"></a></span>
+<span id="cb12-2"><a href="#cb12-2" tabindex="-1"></a><span class="fu">par</span>(<span class="at">mar =</span> <span class="fu">c</span>(<span class="dv">2</span>, <span class="dv">4</span>, <span class="dv">0</span>, <span class="dv">0</span>) <span class="sc">+</span> .<span class="dv">1</span>)</span>
+<span id="cb12-3"><a href="#cb12-3" tabindex="-1"></a><span class="fu">matplot</span>(xgrid, <span class="fu">squish</span>(abserr[, <span class="dv">2</span><span class="sc">:</span><span class="dv">3</span>] <span class="sc">-</span> abserr[, <span class="dv">1</span>]), <span class="at">type =</span> <span class="st">&quot;p&quot;</span>, <span class="at">bty =</span> <span class="st">&quot;n&quot;</span>,</span>
+<span id="cb12-4"><a href="#cb12-4" tabindex="-1"></a>        <span class="at">xlab =</span> <span class="st">&quot;&quot;</span>, <span class="at">ylab =</span> <span class="st">&quot;&quot;</span>, <span class="at">ylim =</span> <span class="fu">squish</span>(<span class="fu">c</span>(<span class="sc">-</span><span class="fl">5e-10</span>, <span class="fl">5e-11</span>)), <span class="at">yaxt =</span> <span class="st">&quot;n&quot;</span>,</span>
+<span id="cb12-5"><a href="#cb12-5" tabindex="-1"></a>        <span class="at">col =</span> <span class="fu">c</span>(<span class="st">&quot;#0000AA88&quot;</span>, <span class="st">&quot;#AA000088&quot;</span>), <span class="at">pch =</span> <span class="dv">16</span>, <span class="at">cex =</span> <span class="fl">0.3</span>)</span>
+<span id="cb12-6"><a href="#cb12-6" tabindex="-1"></a><span class="fu">abline</span>(<span class="at">h =</span> <span class="dv">0</span>, <span class="at">lwd =</span> <span class="dv">3</span>, <span class="at">col =</span> <span class="st">&quot;white&quot;</span>)</span>
+<span id="cb12-7"><a href="#cb12-7" tabindex="-1"></a><span class="fu">abline</span>(<span class="at">h =</span> <span class="dv">0</span>, <span class="at">lty =</span> <span class="dv">2</span>)</span>
+<span id="cb12-8"><a href="#cb12-8" tabindex="-1"></a><span class="fu">legend</span>(<span class="st">&quot;bottomleft&quot;</span>, <span class="fu">c</span>(<span class="st">&quot;Fixed vs. optimal&quot;</span>, <span class="st">&quot;4th-order vs. optimal&quot;</span>), <span class="at">bty =</span> <span class="st">&quot;n&quot;</span>, <span class="at">pch =</span> <span class="dv">16</span>, <span class="at">col =</span> <span class="fu">c</span>(<span class="st">&quot;#00008888&quot;</span>, <span class="st">&quot;#88000088&quot;</span>))</span>
+<span id="cb12-9"><a href="#cb12-9" tabindex="-1"></a>yax.vals <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="sc">-</span><span class="fl">3e-10</span>, <span class="sc">-</span><span class="fl">1e-10</span>, <span class="sc">-</span><span class="fl">3e-11</span>, <span class="sc">-</span><span class="fl">1e-11</span>, <span class="sc">-</span><span class="fl">1e-12</span>, <span class="dv">0</span>, <span class="fl">1e-12</span>, <span class="fl">1e-11</span>, <span class="fl">3e-11</span>)</span>
+<span id="cb12-10"><a href="#cb12-10" tabindex="-1"></a><span class="fu">axis</span>(<span class="dv">2</span>, <span class="fu">squish</span>(yax.vals), yax.vals, <span class="at">las =</span> <span class="dv">1</span>)</span></code></pre></div>
+<p><img role="img" src="data:image/png;base64,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" width="10cm" /></p>
+<p>From the summary table and the plot, we conclude:</p>
+<ol style="list-style-type: decimal">
+<li>The oracle step-size <span class="math inline">\(h_{\mathrm{opt}}\)</span> does not guarantee that
+the numerical derivative using it has the smallest absolute error across
+all step sizes. There are at least four reasons: (1)~the total error
+function might have multiple local minima in the vicinity of the global
+optimum, (2)~the oracle step size needs to be computed with limited
+precision (<span class="math inline">\([h_{\mathrm{opt}}] \ne
+h_{\mathrm{opt}}\)</span>), (3)~the third derivative in the denominator
+might be arbitrarily close to zero, resulting in unbounded step sizes,
+and (4) for certain values of <span class="math inline">\(x\)</span> and
+very small <span class="math inline">\(h\)</span>, the estimated
+truncation error may be zero if successive finite-difference
+approximations are equal (‘stray minima’).</li>
+<li>The naïve rule of thumb without extra multipliers works well
+compared to the oracle because the truncated term containing the third
+derivative is bounded and the step size itself is small.</li>
+<li>The addition of faraway stencil points may improve numerical
+accuracy, reducing the median absolute error by <span class="math inline">\(\approx16\%\)</span> in this particular case.
+These gains depend on the behaviour of the function and the remoteness
+of the outermost points.</li>
+</ol>
+<p>The reader is invited to experiment with other function, other
+argument ranges, and other stencils with large and small gaps produce by
+more drastic step changes in iterations.</p>
+<p>During numerical optimisation, drop, do not store</p>
+<p>Near the optimum, store</p>
+<p></p>
+</div>
+</div>
+<div id="references" class="section level1" number="2">
+<h1><span class="header-section-number">2</span> References</h1>
+<div id="refs" class="references csl-bib-body hanging-indent" entry-spacing="0">
+<div id="ref-curtis1974choice" class="csl-entry">
+Curtis, A. R., and J. K. Reid. 1974. <span>“The Choice of Step Lengths
+When Using Differences to Approximate Jacobian Matrices.”</span>
+<em><span>IMA</span> Journal of Applied Mathematics</em> 13 (1): 121–26.
+<a href="https://doi.org/10.1093/imamat/13.1.121">https://doi.org/10.1093/imamat/13.1.121</a>.
+</div>
+<div id="ref-dumontet1977determination" class="csl-entry">
+Dumontet, J., and J. Vignes. 1977. <span>“Détermination Du Pas Optimal
+Dans Le Calcul Des Dérivées Sur Ordinateur.”</span> <em>RAIRO. Analyse
+Numérique</em> 11 (1): 13–25. <a href="https://doi.org/10.1051/m2an/1977110100131">https://doi.org/10.1051/m2an/1977110100131</a>.
+</div>
+<div id="ref-mathur2012analytical" class="csl-entry">
+Mathur, Ravishankar. 2012. <span>“An Analytical Approach to Computing
+Step Sizes for Finite-Difference Derivatives.”</span> PhD thesis,
+University of Texas at Austin. <a href="http://hdl.handle.net/2152/ETD-UT-2012-05-5275">http://hdl.handle.net/2152/ETD-UT-2012-05-5275</a>.
+</div>
+<div id="ref-mathur2013algorithm" class="csl-entry">
+———. 2013. <span>“Algorithm <span>AAS</span> 13-723: An Analytical
+Approach to Computing Step Sizes for Finite-Difference
+Derivatives.”</span> Emergent Space Technologies, Inc. <a href="https://web.archive.org/web/20240527044243/https://www.emergentspace.com/wp-content/uploads/stepsize.pdf">https://web.archive.org/web/20240527044243/https://www.emergentspace.com/wp-content/uploads/stepsize.pdf</a>.
+</div>
+<div id="ref-stepleman1979adaptive" class="csl-entry">
+Stepleman, R. S., and N. D. Winarsky. 1979. <span>“Adaptive Numerical
+Differentiation.”</span> <em>Mathematics of Computation</em> 33 (148):
+1257–64. <a href="https://doi.org/10.1090/s0025-5718-1979-0537969-8">https://doi.org/10.1090/s0025-5718-1979-0537969-8</a>.
+</div>
+</div>
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,2252 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+<meta name="author" content="Andreï V. Kostyrka, University of Luxembourg" />
+
+
+<title>Fast and accurate parallel numerical derivatives in R</title>
+
+<script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
+// be compatible with the behavior of Pandoc < 2.8).
+document.addEventListener('DOMContentLoaded', function(e) {
+  var hs = document.querySelectorAll("div.section[class*='level'] > :first-child");
+  var i, h, a;
+  for (i = 0; i < hs.length; i++) {
+    h = hs[i];
+    if (!/^h[1-6]$/i.test(h.tagName)) continue;  // it should be a header h1-h6
+    a = h.attributes;
+    while (a.length > 0) h.removeAttribute(a[0].name);
+  }
+});
+</script>
+
+<style type="text/css">
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+span.underline{text-decoration: underline;}
+div.column{display: inline-block; vertical-align: top; width: 50%;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+</style>
+
+
+
+<style type="text/css">
+code {
+white-space: pre;
+}
+.sourceCode {
+overflow: visible;
+}
+</style>
+<style type="text/css" data-origin="pandoc">
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { display: inline-block; text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+{ counter-reset: source-line 0; }
+pre.numberSource code > span
+{ position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+color: #aaaaaa;
+}
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
+div.sourceCode
+{ }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } 
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.at { color: #7d9029; } 
+code span.bn { color: #40a070; } 
+code span.bu { color: #008000; } 
+code span.cf { color: #007020; font-weight: bold; } 
+code span.ch { color: #4070a0; } 
+code span.cn { color: #880000; } 
+code span.co { color: #60a0b0; font-style: italic; } 
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.do { color: #ba2121; font-style: italic; } 
+code span.dt { color: #902000; } 
+code span.dv { color: #40a070; } 
+code span.er { color: #ff0000; font-weight: bold; } 
+code span.ex { } 
+code span.fl { color: #40a070; } 
+code span.fu { color: #06287e; } 
+code span.im { color: #008000; font-weight: bold; } 
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.kw { color: #007020; font-weight: bold; } 
+code span.op { color: #666666; } 
+code span.ot { color: #007020; } 
+code span.pp { color: #bc7a00; } 
+code span.sc { color: #4070a0; } 
+code span.ss { color: #bb6688; } 
+code span.st { color: #4070a0; } 
+code span.va { color: #19177c; } 
+code span.vs { color: #4070a0; } 
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    var j = 0;
+    while (j < rules.length) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") {
+        j++;
+        continue;
+      }
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') {
+        j++;
+        continue;
+      }
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+
+<style type="text/css">
+p.abstract{
+text-align: center;
+font-weight: bold;
+}
+div.abstract{
+margin: auto;
+width: 90%;
+}
+</style>
+
+
+<style type="text/css">
+
+div.csl-bib-body { }
+div.csl-entry {
+clear: both;
+margin-bottom: 0em;
+}
+.hanging div.csl-entry {
+margin-left:2em;
+text-indent:-2em;
+}
+div.csl-left-margin {
+min-width:2em;
+float:left;
+}
+div.csl-right-inline {
+margin-left:2em;
+padding-left:1em;
+}
+div.csl-indent {
+margin-left: 2em;
+}
+</style>
+
+<style type="text/css">body {
+background-color: #fff;
+margin: 1em auto;
+max-width: 700px;
+overflow: visible;
+padding-left: 2em;
+padding-right: 2em;
+font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+font-size: 14px;
+line-height: 1.35;
+}
+#TOC {
+clear: both;
+margin: 0 0 10px 10px;
+padding: 4px;
+width: 400px;
+border: 1px solid #CCCCCC;
+border-radius: 5px;
+background-color: #f6f6f6;
+font-size: 13px;
+line-height: 1.3;
+}
+#TOC .toctitle {
+font-weight: bold;
+font-size: 15px;
+margin-left: 5px;
+}
+#TOC ul {
+padding-left: 40px;
+margin-left: -1.5em;
+margin-top: 5px;
+margin-bottom: 5px;
+}
+#TOC ul ul {
+margin-left: -2em;
+}
+#TOC li {
+line-height: 16px;
+}
+table {
+margin: 1em auto;
+border-width: 1px;
+border-color: #DDDDDD;
+border-style: outset;
+border-collapse: collapse;
+}
+table th {
+border-width: 2px;
+padding: 5px;
+border-style: inset;
+}
+table td {
+border-width: 1px;
+border-style: inset;
+line-height: 18px;
+padding: 5px 5px;
+}
+table, table th, table td {
+border-left-style: none;
+border-right-style: none;
+}
+table thead, table tr.even {
+background-color: #f7f7f7;
+}
+p {
+margin: 0.5em 0;
+}
+blockquote {
+background-color: #f6f6f6;
+padding: 0.25em 0.75em;
+}
+hr {
+border-style: solid;
+border: none;
+border-top: 1px solid #777;
+margin: 28px 0;
+}
+dl {
+margin-left: 0;
+}
+dl dd {
+margin-bottom: 13px;
+margin-left: 13px;
+}
+dl dt {
+font-weight: bold;
+}
+ul {
+margin-top: 0;
+}
+ul li {
+list-style: circle outside;
+}
+ul ul {
+margin-bottom: 0;
+}
+pre, code {
+background-color: #f7f7f7;
+border-radius: 3px;
+color: #333;
+white-space: pre-wrap; 
+}
+pre {
+border-radius: 3px;
+margin: 5px 0px 10px 0px;
+padding: 10px;
+}
+pre:not([class]) {
+background-color: #f7f7f7;
+}
+code {
+font-family: Consolas, Monaco, 'Courier New', monospace;
+font-size: 85%;
+}
+p > code, li > code {
+padding: 2px 0px;
+}
+div.figure {
+text-align: center;
+}
+img {
+background-color: #FFFFFF;
+padding: 2px;
+border: 1px solid #DDDDDD;
+border-radius: 3px;
+border: 1px solid #CCCCCC;
+margin: 0 5px;
+}
+h1 {
+margin-top: 0;
+font-size: 35px;
+line-height: 40px;
+}
+h2 {
+border-bottom: 4px solid #f7f7f7;
+padding-top: 10px;
+padding-bottom: 2px;
+font-size: 145%;
+}
+h3 {
+border-bottom: 2px solid #f7f7f7;
+padding-top: 10px;
+font-size: 120%;
+}
+h4 {
+border-bottom: 1px solid #f7f7f7;
+margin-left: 8px;
+font-size: 105%;
+}
+h5, h6 {
+border-bottom: 1px solid #ccc;
+font-size: 105%;
+}
+a {
+color: #0033dd;
+text-decoration: none;
+}
+a:hover {
+color: #6666ff; }
+a:visited {
+color: #800080; }
+a:visited:hover {
+color: #BB00BB; }
+a[href^="http:"] {
+text-decoration: underline; }
+a[href^="https:"] {
+text-decoration: underline; }
+
+code > span.kw { color: #555; font-weight: bold; } 
+code > span.dt { color: #902000; } 
+code > span.dv { color: #40a070; } 
+code > span.bn { color: #d14; } 
+code > span.fl { color: #d14; } 
+code > span.ch { color: #d14; } 
+code > span.st { color: #d14; } 
+code > span.co { color: #888888; font-style: italic; } 
+code > span.ot { color: #007020; } 
+code > span.al { color: #ff0000; font-weight: bold; } 
+code > span.fu { color: #900; font-weight: bold; } 
+code > span.er { color: #a61717; background-color: #e3d2d2; } 
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">Fast and accurate parallel numerical
+derivatives in R</h1>
+<h4 class="author">Andreï V. Kostyrka, University of Luxembourg</h4>
+<h4 class="date">Created: 2024-10-01, last modified: 2024-10-01,
+compiled: 2025-02-25</h4>
+<div class="abstract">
+<p class="abstract">Abstract</p>
+We illustrate how to use the novel <strong>pnd</strong> package for
+<strong>R</strong> to obtain numerical derivatives, gradients, and
+Hessians and offer empirically backed advice for common situations where
+finite-difference approximations are unreliable.
+</div>
+
+
+<div id="TOC">
+<ul>
+<li><a href="#introduction" id="toc-introduction"><span class="toc-section-number">1</span> Introduction</a></li>
+<li><a href="#derivative-approximation-via-finite-differences" id="toc-derivative-approximation-via-finite-differences"><span class="toc-section-number">2</span> Derivative approximation via finite
+differences</a>
+<ul>
+<li><a href="#derivatives-from-taylor-series" id="toc-derivatives-from-taylor-series"><span class="toc-section-number">2.1</span> Derivatives from Taylor
+series</a></li>
+<li><a href="#derivatives-on-arbitrary-stencils" id="toc-derivatives-on-arbitrary-stencils"><span class="toc-section-number">2.2</span> Derivatives on arbitrary
+stencils</a></li>
+<li><a href="#precision-loss-on-computers" id="toc-precision-loss-on-computers"><span class="toc-section-number">2.3</span> Precision loss on
+computers</a></li>
+</ul></li>
+<li><a href="#numerical-derivatives-of-scalar-functions" id="toc-numerical-derivatives-of-scalar-functions"><span class="toc-section-number">3</span> Numerical derivatives of scalar
+functions</a>
+<ul>
+<li><a href="#two-sided-derivatives" id="toc-two-sided-derivatives"><span class="toc-section-number">3.1</span> Two-sided derivatives</a></li>
+<li><a href="#one-sided-derivatives" id="toc-one-sided-derivatives"><span class="toc-section-number">3.2</span> One-sided derivatives</a></li>
+<li><a href="#second-derivatives" id="toc-second-derivatives"><span class="toc-section-number">3.3</span> Second derivatives</a></li>
+<li><a href="#higher-derivatives" id="toc-higher-derivatives"><span class="toc-section-number">3.4</span> Higher derivatives</a></li>
+<li><a href="#fourth-order-accurate-derivatives" id="toc-fourth-order-accurate-derivatives"><span class="toc-section-number">3.5</span> Fourth-order-accurate
+derivatives</a></li>
+<li><a href="#general-derivative-and-accuracy-orders" id="toc-general-derivative-and-accuracy-orders"><span class="toc-section-number">3.6</span> General derivative and accuracy
+orders</a></li>
+<li><a href="#cross-derivatives" id="toc-cross-derivatives"><span class="toc-section-number">3.7</span> Cross-derivatives</a></li>
+</ul></li>
+<li><a href="#gradients-jacobians-and-hessians" id="toc-gradients-jacobians-and-hessians"><span class="toc-section-number">4</span> Gradients, Jacobians, and
+Hessians</a>
+<ul>
+<li><a href="#numerical-gradients" id="toc-numerical-gradients"><span class="toc-section-number">4.1</span> Numerical gradients</a></li>
+<li><a href="#numerical-jacobians" id="toc-numerical-jacobians"><span class="toc-section-number">4.2</span> Numerical Jacobians</a></li>
+<li><a href="#numerical-hessians-and-cross-derivatives" id="toc-numerical-hessians-and-cross-derivatives"><span class="toc-section-number">4.3</span> Numerical Hessians and
+cross-derivatives</a></li>
+<li><a href="#exploiting-the-hessian-symmetry" id="toc-exploiting-the-hessian-symmetry"><span class="toc-section-number">4.4</span> Exploiting the Hessian
+symmetry</a></li>
+</ul></li>
+<li><a href="#common-issues-with-numerical-derivatives" id="toc-common-issues-with-numerical-derivatives"><span class="toc-section-number">5</span> Common issues with numerical
+derivatives</a>
+<ul>
+<li><a href="#stencil-choice" id="toc-stencil-choice"><span class="toc-section-number">5.1</span> Stencil choice</a></li>
+<li><a href="#handling-very-small-and-very-large-arguments" id="toc-handling-very-small-and-very-large-arguments"><span class="toc-section-number">5.2</span> Handling very small and very large
+arguments</a></li>
+<li><a href="#derivatives-of-noisy-functions" id="toc-derivatives-of-noisy-functions"><span class="toc-section-number">5.3</span> Derivatives of noisy
+functions</a></li>
+<li><a href="#accuracy-loss-due-to-repeated-differencing" id="toc-accuracy-loss-due-to-repeated-differencing"><span class="toc-section-number">5.4</span> Accuracy loss due to repeated
+differencing</a></li>
+</ul></li>
+<li><a href="#complex-derivatives" id="toc-complex-derivatives"><span class="toc-section-number">6</span> Complex derivatives</a></li>
+<li><a href="#todo-uncategorised" id="toc-todo-uncategorised"><span class="toc-section-number">7</span> TODO – Uncategorised</a></li>
+<li><a href="#references" id="toc-references"><span class="toc-section-number">8</span> References</a></li>
+</ul>
+</div>
+
+<div id="introduction" class="section level1" number="1">
+<h1><span class="header-section-number">1</span> Introduction</h1>
+<p>As of 2025, most popular R numerical optimisers and functions for
+computing numerical derivative approximations continue to rely on serial
+evaluation of functions, and even in scenarios where parallelisation is
+feasible, users often lack a convenient parallel solution. The
+<code>pnd</code> package addresses this lacuna by providing functions
+that:</p>
+<ol style="list-style-type: decimal">
+<li>Use multiple CPU cores to reduce numerical derivative computation
+time;</li>
+<li>Choose the optimal finite-difference step size for desired
+derivative and accuracy orders;</li>
+<li>Reuse existing function values to minimise evaluations or increase
+approximation accuracy;</li>
+<li>Report an estimated measure of numerical inaccuracy.</li>
+</ol>
+<p>The first feature alone can significantly expedite optimisation in
+applied research by harnessing the full power of multi-core
+machines.</p>
+<p>Some R packages offer finite-difference-based derivatives with either
+hard-coded or suboptimal step sizes (e.g. <code>optim()</code> in the
+core <span class="citation">R Core Team (2024)</span> for gradient-based
+methods), potentially leading to misleading results with quasi-Newton
+optimisers and lacking error diagnostic tools. Technical research
+articles and book chapters on numerical methods provide optimality
+results and explicit step-size formulæ, but user guides and package
+vignettes often lack practical insights into the principles underlying
+the selection of tuning parameters.</p>
+<p>This vignette showcases the core functionality of the
+<code>pnd</code> package.</p>
+<p>Despite the proliferation of parallelism-supporting R packages
+(e.g. <code>psqn</code>, <code>DEoptim</code>, <code>hydroPSO</code>),
+few implementations address gradient-related numerical optimisation
+issues. The <code>optimParallel</code> package by <span class="citation">Gerber and Furrer (2019)</span> offers an internally
+parallelised L-BFGS-B method for the <code>optim()</code> optimiser.<a href="#fn1" class="footnote-ref" id="fnref1"><sup>1</sup></a> As of May
+2023, it does not support algorithms other than L-BFGS-B, which is
+problematic given the abundance of quasi-Newton solvers
+(<code>nlm</code>, <code>nlmimb</code>, <code>nloptr::nloptr</code>,
+<code>Rsolnp::solnp</code>, <code>BB::spg</code>,
+<code>maxLik::maxBHHH</code>), all of which would benefit from
+parallelised gradients or Hessians.</p>
+<p>To the best of our knowledge, no R packages currently address the
+problem of step size in finite-difference derivative approximation
+comprehensively. The <code>numDeriv</code> package offers facilities for
+controlling the accuracy order, step size, and other tuning parameters,
+but does not output diagnostic information. Users must manually request
+the diagnostic print-out themselves, which works for gradients but not
+Hessians.<a href="#fn2" class="footnote-ref" id="fnref2"><sup>2</sup></a> The <code>pnd</code> package tackles this
+problem by offering three explicit data-driven step-search routines with
+detailed diagnostic information.</p>
+<p><code>numDeriv</code> and <code>pnd</code> differ fundamentally in
+attaining higher-order accuracy. <code>numDeriv</code> allows users to
+set the initial step size and request a certain number of Richardson
+improvement iterations to mitigate the truncation error, which run
+sequentially. In contrast, <code>pnd</code> achieves desired accuracy by
+creating a necessary argument-value grid and evaluating the function in
+parallel, benefitting both high-dimensional applications like
+Barzilai–Borwein optimisation and low-dimensional gradients and
+Hessians. The results are comparable in effective accuracy, with minor
+differences attributable to initial step size choice and subsequent
+extrapolation rules in <code>numDeriv</code>.</p>
+<p>In summary, the <code>pnd</code> package provides fast and accurate
+numerical differentiation and diagnostic features for numerical
+gradients, Jacobians, Hessians, and higher-order derivatives. This
+vignette includes theory and practical examples for step size selection
+in numerical derivatives.</p>
+<p>For the remainder of the paper, we shall use the following
+abbreviations and notation conventions:</p>
+<ul>
+<li>FP = floating-point, FD = forward differences, CD = central
+differences, BD = backward differences.</li>
+<li><span class="math inline">\(f^{(i)}\)</span> denotes the <span class="math inline">\(i\)</span><sup>th</sup> derivative of <span class="math inline">\(f\)</span> (order 5 and higher), where <span class="math inline">\(i\)</span> is a Roman numeral.</li>
+<li><span class="math inline">\(x^{(n)}\)</span> denotes the <span class="math inline">\(n\)</span><sup>th</sup> coordinate of <span class="math inline">\(x\)</span>, where <span class="math inline">\(n\)</span> is an Arabic numeral.</li>
+<li><span class="math inline">\(\hat f(x)\)</span> or <span class="math inline">\([f(x)]\)</span> denotes the finite-precision
+machine version of <span class="math inline">\(f\)</span> evaluated at
+<span class="math inline">\(x\)</span>. Brackets are better for denoting
+the compounded error in expressions with chained operations.</li>
+<li><span class="math inline">\(\varepsilon_{f}\)</span> denotes the
+machine-rounding error between the true value and its FP representation:
+<span class="math inline">\(\varepsilon_{f} := f - \hat f\)</span>.</li>
+<li><span class="math inline">\(\epsilon_{\mathrm{m}}\)</span> denotes
+the machine epsilon, i.e. the smallest positive FP number <span class="math inline">\(a\)</span> such that <span class="math inline">\([1+a] \ne 1\)</span>. Equals on modern 64-bit
+machines to <span class="math inline">\(2^{-52} \approx 2.22\cdot
+10^{-16}\)</span> if the IEEE double-precision FP standard is used.<a href="#fn3" class="footnote-ref" id="fnref3"><sup>3</sup></a></li>
+</ul>
+<p>This vignette demonstrates the capabilities of the <code>pnd</code>
+package, thus users should attach it before executing the code in
+subsequent sections:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="fu">library</span>(pnd)</span></code></pre></div>
+</div>
+<div id="derivative-approximation-via-finite-differences" class="section level1" number="2">
+<h1><span class="header-section-number">2</span> Derivative
+approximation via finite differences</h1>
+<div id="derivatives-from-taylor-series" class="section level2" number="2.1">
+<h2><span class="header-section-number">2.1</span> Derivatives from
+Taylor series</h2>
+<p></p>
+<p>The true (analytical) derivative of the scalar-valued function <span class="math inline">\(f\)</span> at the point <span class="math inline">\(x\)</span> is defined as the limit <span class="math display">\[
+f&#39;(x) := \lim_{h\to0} \frac{f(x + h) - f(x)}{h}.
+\]</span></p>
+<p>The usual caveat applies: <span class="math inline">\(f(x)\)</span>
+must be differentiable at <span class="math inline">\(x\)</span>,
+i.e. the limit must exist.</p>
+<p>In many applications where analytical derivatives <span class="math inline">\(f\)</span> are cumbersome or impossible to compute
+but the value of <span class="math inline">\(f&#39;(x)\)</span> is
+needed, one intuitive approach is to remove the limit in the definition
+of the derivative and considering the finite difference <span class="math display">\[
+f_{\mathrm{FD}_1}&#39; (x, h) := \frac{f(x + h) - f(x)}{h}.
+\]</span> This is the first-order-accurate forward-difference
+approximation of <span class="math inline">\(f\)</span>.</p>
+<p>One could <em>hypothetically</em> choose a sequence of decreasing
+step sizes <span class="math inline">\(h_i\)</span> (e.g. <span class="math inline">\(\{0.1, 0.01, 0.001, \ldots\}\)</span>), and
+observe that the sequence <span class="math inline">\(f&#39;_{\mathrm{FD}} (x,
+0.1),  f&#39;_{\mathrm{FD}} (x, 0.01),  f&#39;_{\mathrm{FD}} (x, 0.001),
+\ldots\)</span> approaches a certain number as <span class="math inline">\(h\to 0\)</span>. In practice, however, computing
+this sequence on a computer can lead to erratic behavior for very small
+<span class="math inline">\(h\)</span>. This instability arises from the
+discrepancy between the true <span class="math inline">\(f&#39;_{\mathrm{FD}}\)</span> and its machine
+evaluation, <span class="math inline">\(\hat
+f&#39;_{\mathrm{FD}}\)</span>. The nature of this discrepancy is
+investigated in what follows.</p>
+<p>The first-order-accurate backward difference and the
+second-order-accurate central difference are defined similarly: <span class="math display">\[
+f&#39;_{\mathrm{BD}_1} := \frac{f(x)-f(x-h)}{h}, \qquad
+f&#39;_{\mathrm{CD}_2} := \frac{0.5 f(x+h) - 0.5f(x-h)}{h}
+\]</span> Finite-difference-based approximations of derivatives receive
+the subscripts ‘FD’, ‘BD’, or ‘CD’, and are labelled
+‘first-order-accurate’ and ‘second-order-accurate’, denoted by a digit
+in the subscript, based on the approximation error arising from
+truncating the Taylor expansion of <span class="math inline">\(f\)</span> at <span class="math inline">\(x\)</span>: <span class="math display">\[
+f(x \pm h) = \sum_{i=0}^{\infty} \frac{1}{i!} \frac{\mathrm{d}^i
+f}{\mathrm{d} x^i} (x) (\pm h)^i = f(x) \pm \frac{h}{1!} f&#39;(x) +
+\frac{h^2}{2!} f&#39;&#39;(x) \pm \frac{h^3}{3!} f&#39;&#39;&#39;(x) +
+\ldots
+\]</span></p>
+<p>Rearranging the terms and dividing by <span class="math inline">\(h\)</span>: <span class="math display">\[
+f&#39;(x) = \frac{f(x+h) - f(x)}{h} - \frac{h}{2} f&#39;&#39;(x) -
+\frac{h^2}{6} f&#39;&#39;&#39;(x) - \ldots
+\]</span> The <strong>accuracy order</strong> is defined as the smallest
+exponent of <span class="math inline">\(h\)</span> in the truncated part
+of the Taylor series (since <span class="math inline">\(h\to0\)</span>,
+the lowest power dominates the remainder): <span class="math display">\[
+f&#39;(x) = \frac{f(x+h) - f(x)}{h} - \frac{h}{2} f&#39;&#39;(x) -
+\frac{h^2}{6} f&#39;&#39;&#39;(x + \alpha h) = f&#39;_{\mathrm{FD}_1} -
+\frac{f&#39;&#39;(x)}{2} h + O(h^2),
+\]</span> where <span class="math inline">\(\alpha \in [0,
+1]\)</span>.</p>
+<p>The <strong>truncation error</strong> is the difference between the
+true function and the first few terms of its Taylor expansion: <span class="math display">\[
+\varepsilon_{\mathrm{t}}(h) := f&#39;(x) - f&#39;_{\mathrm{FD}_1}(x, h)
+\]</span> In forward differences, the dominant term in the truncation
+error is <span class="math inline">\(\frac{f&#39;&#39;(x)}{2}
+h^1\)</span> – the first power of~<span class="math inline">\(h\)</span>
+multiplied by a constant, hence the term <strong>first-order
+accuracy</strong>; since <span class="math inline">\(h\to0\)</span>, we
+ignore the Lagrange remainder <span class="math inline">\(O(h^2)\)</span>.<a href="#fn4" class="footnote-ref" id="fnref4"><sup>4</sup></a> We reserve the letter
+<span class="math inline">\(a\)</span> for the accuracy order –
+requested by the user and achievable by carrying out multiple function
+evaluations – and the letter <span class="math inline">\(m\)</span> for
+the derivative order.</p>
+<p>Central differences are second-order-accurate owing to the
+cancellation of even-power terms in the Taylor expansion: <span class="math display">\[
+f(x+h) - f(x-h) = (f(x) - f(x)) + (h - (-h)) f&#39;(x)+ (h^2/2 - h^2/2)
+f&#39;&#39;(x)  \\
++ \frac{h^3}{6} f&#39;&#39;&#39;(x+\alpha_1 h) +
+\frac{h^3}{6}  f&#39;&#39;&#39;(x - \alpha_2 h)
+\]</span> where <span class="math inline">\(\alpha_1, \alpha_2 \in [0,
+1]\)</span>. To simplify this expression, we use the Generalsed
+Intermediate Value Theorem (GIVT).</p>
+<p>By the generalised intermediate value theorem, <span class="math display">\[
+\frac{h^3}{6} f&#39;&#39;&#39;(x+\alpha_1 h) + \frac{h^3}{6}
+f&#39;&#39;&#39;(x - \alpha_2 h)
+= (h^3/6 + h^3/6) f&#39;&#39;&#39;(x+\alpha h) = \frac{h^3}{3}
+f&#39;&#39;&#39;(x+\alpha h),
+\]</span> for some <span class="math inline">\(\alpha \in [-1,
+1]\)</span>.</p>
+<p>It follows that <span class="math display">\[
+f(x+h) - f(x-h) = 2h f&#39;(x) + \frac{h^3}{3} f&#39;&#39;&#39;(x +
+\alpha h)
+\]</span> and <span class="math display">\[
+f&#39;_{\mathrm{CD}_2}(x) = \frac{0.5(2hf&#39;(x) + \frac{h^3}{3} \cdot
+f&#39;&#39;&#39;(x+\alpha h) )}{h} = f&#39;(x) + \frac{h^2}{6}
+f&#39;&#39;&#39;(x + \alpha h).
+\]</span> The respective truncation error is <span class="math inline">\(f&#39;(x) -  f&#39;_{\mathrm{CD}_2}(x) =
+-\frac{f&#39;&#39;&#39;(x + \alpha h)}{6} h^2 = O(h^2)\)</span>.</p>
+</div>
+<div id="derivatives-on-arbitrary-stencils" class="section level2" number="2.2">
+<h2><span class="header-section-number">2.2</span> Derivatives on
+arbitrary stencils</h2>
+<p></p>
+<p>Function evaluations may be costly. In certain large-scale
+applications, it may be necessary to obtain a numerical derivative <span class="math inline">\(f&#39;(x_0)\)</span> when the prohibitively slow
+<span class="math inline">\(f\)</span> was evaluated on a supercomputer
+with arguments <span class="math inline">\(x_1\)</span>, <span class="math inline">\(x_2\)</span>, and <span class="math inline">\(x_3\)</span>. For such cases, an approach is
+necessary to use existing cached function values for approximating
+derivatives at arbitrary points. At the same time, having more than two
+function evaluations at distinct points grants an opportunity to cancel
+out more terms in the Taylor expansion of the first derivative for a
+smaller remainder term.</p>
+<p>We adopt the following terminology, with some adjustments, from <span class="citation">Fornberg (1988)</span>. For a sequence <span class="math inline">\(\{b_i\}_{i=1}^{n}\)</span> let <span class="math inline">\(x + b_1 h, x + b_2 h, \ldots, x + b_n h\)</span>
+be the <strong>evaluation grid</strong> for a function <span class="math inline">\(f\)</span>. The column vector <span class="math inline">\((b_1, \ldots, b_n)&#39;\)</span> with all distinct
+elements is called the <strong>stencil</strong>. In the <code>pnd</code>
+package, users may rely on the default integer-valued stencil centred at
+0 or choose a custom stencil. For this stencil, there exist such
+<strong>finite-difference coefficients</strong> <span class="math inline">\((w_1, \ldots, w_n)&#39;\)</span> that, when used
+as weights in the sum <span class="math inline">\(\sum_{i=1}^n w_i f(x +
+b_i h)\)</span>, approximate the <span class="math inline">\(\mathrm{d}^mf/\mathrm{d}x^m\)</span> up to the
+order of accuracy <span class="math inline">\(a\)</span>: <span class="math display">\[\begin{equation}\label{eq:wsum}
+\frac{\mathrm{d}^m f}{\mathrm{d} x^m} (x) = h^{-m} \sum_{i=1}^n w_i f(x
++ b_i h) + O(h^{a})
+\end{equation}\]</span> It is necessary that <span class="math inline">\(n &gt; m\)</span>, yielding a formal accuracy
+order <span class="math inline">\(a \ge n - m\)</span> (in general).<a href="#fn5" class="footnote-ref" id="fnref5"><sup>5</sup></a></p>
+<p>The intuition behind this derivative approximation via weighted sums
+is twofold.</p>
+<ol style="list-style-type: decimal">
+<li><strong>More evaluations, higher accuracy.</strong> Derivatives
+indicate the instantaneous rate of change of <span class="math inline">\(f\)</span> in a small neighbourhood where the
+function resembles a line. It is possible to choose two points, <span class="math inline">\((x_1, f(x_1)), (x_2, f(x_2))\)</span>, close to
+the point of interest to construct a linear approximation of <span class="math inline">\(f\)</span>. More generally, <span class="math inline">\(n\)</span>~points can be used to construct an
+interpolating polynomial of degree~<span class="math inline">\((n-1)\)</span> and to compute the derivative of
+the power series analytically at any point. The higher the polynomial
+degree, the better the approximation within the convergence radius,
+hence any departures of <span class="math inline">\(f\)</span> from
+linearity are captured by higher-order polynomial terms available with
+more points per evaluation grid.</li>
+<li><strong>More evaluations, higher derivative order.</strong> Given a
+stencil of length <span class="math inline">\(n\)</span> and the values
+of <span class="math inline">\(f\)</span> at the corresponding grid, one
+can construct Taylor expansions of <span class="math inline">\(f\)</span> at those points and find such
+coefficients for their linear combination that all derivatives of order
+0 through <span class="math inline">\((n-2)\)</span> should cancel out
+and the sum of coefficients on the <span class="math inline">\((n-1)\)</span> derivative should become one.</li>
+</ol>
+<p>This implies that stencils with more points should allow the
+researcher to compute linear combinations of functions whose Taylor
+expansion terms cancel out in the positions before and after the
+derivative of interest.</p>
+<p>For a stencil <span class="math inline">\((b_1, \ldots,
+b_{n})\)</span>, and for derivative order <span class="math inline">\(m\)</span>, the weights that zero out the sums of
+derivatives of orders other than <span class="math inline">\(m\)</span>
+and result in a unit coefficient on the <span class="math inline">\(m\)</span> derivative must satisfy <span class="math display">\[
+\begin{pmatrix}
+b_1^0  &amp; \cdots  &amp; b_n^0 \\
+\vdots &amp; \ddots &amp; \vdots  \\
+b_1^{n-1}  &amp; \cdots  &amp; b_n^{n-1}
+\end{pmatrix}
+\begin{pmatrix}
+w_1 \\ \vdots \\ w_n
+\end{pmatrix} =
+\begin{pmatrix}
+0 \\ \vdots \\ m! \\ \vdots \\ 0
+\end{pmatrix} \iff B \vec w  = \vec m
+\]</span> where the non-zero entry <span class="math inline">\(m!\)</span> of the vector <span class="math inline">\(\vec m\)</span> occurs in the <span class="math inline">\((m+1)\)</span> position. The solution is <span class="math display">\[
+\vec w = B^{-1} \vec m,
+\]</span> provided that <span class="math inline">\(B\)</span> is
+invertible – implying that the elements of the stencil must be distinct.
+Another condition follows from the definition of <span class="math inline">\(\vec m\)</span>: for the element <span class="math inline">\(m!\)</span> to be placed in the position <span class="math inline">\(m+1\)</span>, the stencil length must be at least
+<span class="math inline">\(m+1\)</span> (one more than the derivative
+order).</p>
+<p>The optimal weights <span class="math inline">\(\vec w\)</span> do
+not depend on <span class="math inline">\(h\)</span> because the
+weighted sum in Eq.~<span class="math inline">\(\eqref{eq:wsum}\)</span>
+is already normalised by factor <span class="math inline">\(h^{-m}\)</span>. The weights for stencils <span class="math inline">\((-2, -1, 1, 2)\)</span> and <span class="math inline">\((-10, -5, 5, 10)\)</span> are therefore
+identical.</p>
+<p>The idea is to find such coefficients <span class="math inline">\(\{w_i\}_{i=1}^n\)</span> that the derivatives of
+order less than <span class="math inline">\(m\)</span> cancel out and
+the coefficients on the <span class="math inline">\(m\)</span><sup>th</sup> derivative add up to
+unity. Our implementation uses the <span class="citation">Björck and
+Pereyra (1970)</span> algorithm to avoid inverting the matrix the
+numerically ill-conditioned Vandermonde matrix <span class="math inline">\(B\)</span>. Using numerical routines relying on
+matrix inversion (such as LAPACK) invokable through
+<code>base::solve()</code> is not recommended due to the rapid
+deterioration of the solution accuracy. See Appendix A in <span class="citation">Kostyrka (2025)</span> for an investigation of this
+numerical instability.</p>
+<p>By default, <code>fdCoef()</code> assumes central differences for
+second-order-accurate first derivatives, but every aspect of numerical
+differencing can be customised.</p>
+<ul>
+<li><code>fdCoef()</code> without any arguments returns a list with
+stencil <span class="math inline">\((-1, 1)\)</span> and weights <span class="math inline">\((-0.5, 0.5)\)</span>, translating to the
+approximation <span class="math inline">\(f&#39;_{\mathrm{CD_2}}(x, h) =
+(-0.5 f(x-h) + 0.5 f(x+h))/h\)</span>.</li>
+<li>Requesting higher-order accuracy via
+<code>fdCoef(acc.order = 4)</code> yields a larger stencil for the
+default derivative order (<span class="math inline">\(m=1\)</span>) via
+central differences because more evaluations are needed to make <span class="math inline">\(a-1\)</span> terms cancel out.</li>
+<li>Requesting higher-order derivatives via
+<code>fdCoef(deriv.order = 3)</code> yields the minimally sufficient
+stencil for second-order accuracy (<span class="math inline">\(a=2\)</span>) via central differences.</li>
+<li>Requesting forward differences yields a stencil starting at zero:
+<code>fdCoef(deriv.order = 2, side = &quot;forward&quot;)</code> yields the
+minimally sufficient non-negative stencil for <span class="math inline">\(m=2\)</span>, <span class="math inline">\(a=2\)</span>.</li>
+<li>The user may request a custom stencil:
+<code>fdCoef(deriv.order = 3, stencil = c(-3, -1, 1, 3))</code>
+calculates the weights for second-order-accurate <span class="math inline">\(f&#39;&#39;&#39;_\Delta (x)\)</span> obtained by
+evaluating <span class="math inline">\(f\)</span> at <span class="math inline">\(x+(-3, -1, 1, 3)\cdot h\)</span>.</li>
+</ul>
+<p>Central differences (or, more generally, stencils with both positive
+and negative points) yield <em>higher accuracy</em> for the same number
+of evaluations or require <em>fewer evaluations</em> to attain the
+desired accuracy order. Computing fourth-order-accurate second
+derivatives (e.g. for a very accurate Hessian diagonal) can be done on
+stencils <span class="math inline">\(\{0, \pm 1, \pm 2\}\)</span> (5
+evaluations) or <span class="math inline">\(\{0, 1, \ldots, 6\}\)</span>
+(7 evaluations). The practical reason to prefer forward differences can
+be the extreme computation time of <span class="math inline">\(f\)</span>; if <span class="math inline">\(f(x)\)</span> has been pre-computed, evaluating
+<span class="math inline">\((f(x+h) - f(x))/h\)</span> is faster than
+<span class="math inline">\(0.5 (f(x+h) - f(x-h))/h\)</span>. If <span class="math inline">\(f(x)\)</span> has not yet been computed, both
+<span class="math inline">\(f_{\mathrm{FD}_1}\)</span> and <span class="math inline">\(f_{\mathrm{CD}_2}\)</span> require 2 evaluations,
+so the latter is preferable for accuracy reasons.</p>
+<p>The output of <code>fdCoef()</code> for 5-point stencils matches
+formulæ 5.1–5.4 from <span class="citation">Li (2005)</span>.</p>
+</div>
+<div id="precision-loss-on-computers" class="section level2" number="2.3">
+<h2><span class="header-section-number">2.3</span> Precision loss on
+computers</h2>
+<p>Numerical methods are often preferred over analytical ones. With
+highly non-linear models conquering applied research, providing
+analytical gradients becomes less feasible. Their derivation can be
+cumbersome and, due to the approximate nature of statistical methods,
+only marginally useful compared to their more affordable numerical
+approximations. Most numerical optimisation methods rely on gradients to
+determine the search direction, which is why the user is supposed to
+provide some form of gradient function. Without a gradient function, a
+gradient-based optimisation method might attempt to compute <span class="math inline">\(f&#39;_{\mathrm{CD}_2}\)</span> with default
+parameters that can be suboptimal or even perilous.</p>
+<p>After the optimiser converges (hopefully with zero exit code) to a
+certain optimal value of the argument (usually called the
+<em>estimate</em>), many implementations of statistical methods
+calculate a measure of uncertainty in the estimate due to the data
+randomness through the objective function curvature. This measurement
+often involves the Hessian matrix, which also needs to be computed or at
+least approximated. For example, if the parameter vector <span class="math inline">\(\theta\)</span> is estimated via maximum
+likelihood, assuming that the model specification is correct and the
+conditional density of the model error is fully known up <span class="math inline">\(\theta\)</span>, the asymptotic
+variance-covariance of the estimator is often computed as the inverse of
+the observed Fisher information at the optimum – the negative Hessian of
+the log-likelihood function. The accuracy of Hessian calculation depends
+on the step size, and the step size that minimises the numerical
+gradient error is unlikely to minimise the numerical Hessian error.
+Arguably, accurate Hessians are more important for applied researchers
+than accurate gradients because it is the inverse of the Hessian matrix
+that is used for inferential calculations. Matrix inversion, being a
+numerically unstable operation, propagates and magnifies any
+inaccuracies in the computed Hessian, often by several orders of
+magnitude.</p>
+<p>The problem of derivative approximation boils down to limited
+precision in the default numerical routines written in most popular
+programming languages. Every number in computer memory is represented by
+a finite number of bits, which is why <strong>arithmetic operations on
+computers are often lossy</strong>. Except for special lossless
+operations like multiplying by powers of 2 via bit shifting or
+subtracting two numbers separated by less than one binary order of
+magnitude (Sterbenz lemma), most operations with most real numbers lead
+to <strong>machine-rounding errors</strong>. Even converting decimal to
+binary is lossy: merely entering the number 0.3 into computer memory
+already introduces an error because the closest representable binary
+number is slightly less than 3/10. In our notation, <span class="math inline">\([3/10] \ne 3/10\)</span>.</p>
+<p>To accurately compute numerical derivatives, researchers should track
+every potentially lossy operation in computer memory. This allows
+bounding the error, comparing the losses, and focusing on the
+preventable ones. The expression <span class="math inline">\(\hat
+f&#39;_{\mathrm{FD}_2}\)</span> implies a 3-step procedure, namely <span class="math inline">\(\left[\frac{[\hat f([x+h]) - \hat
+f(x)]}{h}\right]\)</span>. Assuming that <span class="math inline">\(x\)</span> is a value already loaded in the
+memory:</p>
+<ol style="list-style-type: decimal">
+<li><span class="math inline">\(x+h\)</span> is computed by the machine
+(to the best available precision, usually 64-bit FP);</li>
+<li><span class="math inline">\(f\)</span> is evaluated at <span class="math inline">\(x\)</span> and <span class="math inline">\([x+h]\)</span> (to the same precision);</li>
+<li>The outermost arithmetic operations are performed: addition and
+division by <span class="math inline">\(h\)</span> (to the same
+precision).</li>
+</ol>
+<p>Thus, 3 types of errors appear: <span class="math display">\[
+\left[\frac{\hat f([x+h]) - \hat f(x)}{h}\right] = \frac{\bigl( f(x + h
++ \varepsilon_+) + \varepsilon_{f,1} - f(x) - \varepsilon_{f, 2}\bigr) +
+\varepsilon_-}{h} + \varepsilon_{/}.
+\]</span></p>
+<ol style="list-style-type: decimal">
+<li><span class="math inline">\(\varepsilon_+\)</span> is the
+<strong>argument-rounding</strong> error;</li>
+<li><span class="math inline">\(\varepsilon_{f,1}\)</span> and <span class="math inline">\(\varepsilon_{f,2}\)</span> are the
+<strong>function-rounding</strong> errors;</li>
+<li><span class="math inline">\(\varepsilon_-\)</span> and <span class="math inline">\(\varepsilon_{/}\)</span> are the
+<strong>arithmetic-rounding</strong> errors.</li>
+</ol>
+<p>The arithmetic-rounding errors may lead to <strong>catastrophic
+cancellation</strong>: if two real numbers, <span class="math inline">\(x_1\)</span> and <span class="math inline">\(x_2\)</span>, are separated by a very small
+difference, <span class="math inline">\(|x_1 - x_2| \approx 0\)</span>,
+the machine representation of their difference, <span class="math inline">\([\hat x_1 - \hat x_2]\)</span>, has a potentially
+unbounded high relative error. Example:
+<code>1.000000000000001 - 0.999999999999999</code> evaluates to
+<code>2.109424e-15</code> instead of <code>2e-15</code>, making the
+relative error higher than 5%.</p>
+<p>It is common to ignore the argument-rounding errors because they are
+usually small compared to the function-rounding error. In subsequent
+analysis, argument-rounding errors are ignored as it is always possible
+to choose such step size <span class="math inline">\(h\)</span> that
+<span class="math inline">\([x+h] = x+h\)</span> without any accuracy
+loss (usually achieved by considering <span class="math inline">\(h =
+2^{-i}\)</span>, <span class="math inline">\(i \in \mathbb{Z}\)</span>,
+making <span class="math inline">\(x+h\)</span> a lossless bit-flip
+operation). For a rigorous analysis of the rounding error due to the
+binary representation error, see Table 3.1 in <span class="citation">Mathur (2012)</span>; the recommendation of choosing
+<span class="math inline">\(h\)</span> as a power of 2 can be found
+<em>ibidem</em>. It is also common to ignore the arithmetic-rounding
+errors in the numerator. Therefore, it suffices to bound the numerator
+error, calculate its amplification due to division by <span class="math inline">\(h^m\)</span>, and minimise the result with respect
+to~<span class="math inline">\(h\)</span>.</p>
+<p>The terms <span class="math inline">\(f(x+h)\)</span> and <span class="math inline">\(f(x-h)\)</span> usually have the same binary
+exponent; thus, by the Theorem 11 in <span class="citation">Goldberg
+(1991)</span>, <span class="math inline">\([f(x+h) - f(x-h)]\)</span> is
+exact. Even for higher-order derivatives, the same order of magnitude of
+<span class="math inline">\(f(x+h), f(x+2h),\ldots\)</span> implies that
+in most cases, no radix shifting is required for IEEE~794-compliant
+addition, and the round-off error is due only to the normalisation of
+the sum. This normalisation error has a high probability of being zero,
+depending on the least significant bits. Similarly, multiplication by
+integer powers of 2 is achieved through incrementing or decrementing the
+(usually 11-bit) exponent without changing the significand, unless the
+number is too large or too small and some non-zero bits of the mantissa
+are lost due to shifting.</p>
+<p>Apart from the Taylor-series-related <strong>truncation
+error</strong>, the next source of inaccuracy is the <strong>rounding
+error</strong> <span class="math inline">\(\varepsilon_{\mathrm{r}}\)</span> – the
+discrepancy between the theoretical finite-difference value and its
+machine evaluation equal to the sum of the argument-, function-, and
+arithmetic-rounding errors. The <strong>total error</strong>, <span class="math inline">\(\varepsilon := \varepsilon_{\mathrm{t}} +
+\varepsilon_{\mathrm{r}}\)</span>, is the sum of the ‘theoretical’
+truncation and ‘practical’ rounding error. Each error can be bounded in
+absolute terms: <span class="math inline">\(|\varepsilon_{\mathrm{t}}|
+&lt; \overline{\varepsilon_{\mathrm{t}}}\)</span>, <span class="math inline">\(|\varepsilon_{\mathrm{r}}| &lt;
+\overline{\varepsilon_{\mathrm{r}}}\)</span>. Then, define the
+total-error function <span class="math inline">\(\varepsilon(h) :=
+\overline{\varepsilon_{\mathrm{t}}}(h) +
+\overline{\varepsilon_{\mathrm{r}}}(h)\)</span> as the objective
+discrepancy measure to be minimised; the <strong>optimal step
+size</strong>, <span class="math inline">\(h^* := \arg\min_h
+\varepsilon(h)\)</span>, minimises the total error. For the sake of
+brevity, the dependence of the <span class="math inline">\(\varepsilon\)</span> function on <span class="math inline">\(f\)</span>, <span class="math inline">\(h\)</span>, and machine precision is omitted.</p>
+<p>Frustratingly, there is no universal ‘one-size-fits-all’ numerical
+difference step size <span class="math inline">\(h\)</span>.</p>
+<ul>
+<li>If <span class="math inline">\(h\)</span> is too small, the error is
+mainly due to precision loss in the calculation of <span class="math inline">\(\hat f([x+h])\)</span> and the amplification of
+the sum of the numerator errors by the factor <span class="math inline">\(1/h^m\)</span>;</li>
+<li>If <span class="math inline">\(h\)</span> is too large, the
+approximation <span class="math inline">\(f&#39;(x) \approx \frac{f(x+h)
+- f(x)}{h}\)</span> becomes poor due to the omitted Taylor series terms.
+Higher non-linearity of <span class="math inline">\(f(x)\)</span>
+increases the error from higher-order terms evaluated at the point <span class="math inline">\(x+h\)</span> far from <span class="math inline">\(x\)</span>.</li>
+<li>Derivatives of different orders depend differently on the step size:
+division by <span class="math inline">\(h\)</span> in <span class="math inline">\(f&#39;_{\mathrm{CD}_2}\)</span> and by <span class="math inline">\(h^2\)</span> in <span class="math inline">\(f&#39;&#39;_{\mathrm{CD}_2}\)</span> implies that
+the same value <span class="math inline">\(h_0\)</span> leads to
+potentially larger rounding errors in the evaluation of <span class="math inline">\(f&#39;&#39;\)</span>, even if both <span class="math inline">\(f&#39;_{\mathrm{CD}_2}\)</span> and <span class="math inline">\(f&#39;&#39;_{\mathrm{CD}_2}\)</span> have the same
+order of accuracy, <span class="math inline">\(O(h^2)\)</span>.</li>
+</ul>
+<p>Thus, the term ‘accuracy order’ might be misleading to statistical
+software users since <em>it is impossible to request arbitrary numerical
+derivative accuracy from a computer</em>. Instead, one can only bound
+the total loss. The goal is to find <span class="math inline">\(h^*\)</span> for a given application and obtain
+the <em>best</em> approximation of <span class="math inline">\(\frac{\mathrm{d}^m f}{\mathrm{d} x^m}(x)\)</span>
+on a given machine for a given <span class="math inline">\(x\)</span>.
+The word ‘best’ is used in the sense that although by pure coincidence,
+the total rounding error might be equal to zero, <span class="math inline">\(h^*\)</span> is ‘optimal’ if it ensures that the
+total-error function is minimised for most inputs in the small
+neighbourhood of <span class="math inline">\(x\)</span>.</p>
+</div>
+</div>
+<div id="numerical-derivatives-of-scalar-functions" class="section level1" number="3">
+<h1><span class="header-section-number">3</span> Numerical derivatives
+of scalar functions</h1>
+<p>The derivations below follow the logic of Section 5.1 from <span class="citation">Sauer (2017)</span>, without assuming that the order of
+magnitude of <span class="math inline">\(f(x)\)</span> is approximately
+1. Differences are written as weighted sums of <span class="math inline">\(f\)</span> evaluated on a stencil sorted in
+ascending order in the spirit of <span class="citation">Fornberg
+(1988)</span>, reflecting the flexibility to use arbitrary stencils,
+useful if the function evaluation is expensive and existing values must
+be reused. This also contains all multipliers affecting the rounding
+error in the numerator of the fraction, simplifying calculations.</p>
+<div id="two-sided-derivatives" class="section level2" number="3.1">
+<h2><span class="header-section-number">3.1</span> Two-sided
+derivatives</h2>
+<p>Consider the central-difference approximation of the first derivative
+on the default uniformly spaced stencil: <span class="math display">\[
+f&#39;(x) = \frac{-0.5f(x-h) + 0.5f(x+h)}{h} + O(h^2)
+\]</span></p>
+<p>The truncation error for this expression is <span class="math display">\[
+f&#39;(x) - f&#39;_{\mathrm{CD}_2}(x) =  - \frac{h^2}{6}
+f&#39;&#39;&#39;(x + \alpha h),
+\]</span> where <span class="math inline">\(\alpha \in [-1, 1]\)</span>.
+This means that apart from the freely chosen <span class="math inline">\(h\)</span>, the approximation error depends on the
+3<sup>rd</sup> derivative of <span class="math inline">\(f\)</span>,
+which is usually unknown.</p>
+<p>In computer memory, <span class="math inline">\(f(x+h)\)</span> is
+replaced with its FP version <span class="math inline">\(\hat f(x+h) =
+f(x+h) + \varepsilon_f\)</span>, where <span class="math inline">\(\varepsilon_f\)</span> is a number on the order of
+machine epsilon in relative terms: <span class="math display">\[
+\frac{|\hat f(x) - f(x)|}{|f(x)|} \le \frac{\epsilon_{\mathrm{m}}}{2}
+\quad \Rightarrow \quad |\hat f(x) - f(x)| = |\varepsilon_f| \le
+0.5|f(x)|\epsilon_{\mathrm{m}}
+\]</span></p>
+<p>Each function-rounding error is thus bounded: <span class="math display">\[
+|\hat f(x\pm h) - f(x\pm h)| \le 0.5|f(x\pm h)|\epsilon_{\mathrm{m}}
+\approx 0.5|f(x)|\epsilon_{\mathrm{m}}
+\]</span></p>
+<p>Expanding the numerator: <span class="math display">\[
+-0.5 \hat f(x-h) + 0.5\hat f(x+h) = -0.5 (f(x-h) + \varepsilon_{f,1}) +
+0.5(f(x+h) + \varepsilon_{f,2}) \\
+= 0.5(-f(x-h) + f(x+h)) + 0.5(\varepsilon_{f,2} - \varepsilon_{f,1})
+\]</span> The function-rounding error is bounded due to the triangle
+inequality: <span class="math display">\[
+0.5(\varepsilon_{f,2} - \varepsilon_{f,1}) \le 0.5(|\varepsilon_{f,2}| +
+|\varepsilon_{f,1}|) \le  0.5(2\cdot 0.5|f(x)|\epsilon_{\mathrm{m}}) =
+0.5|f(x)|\epsilon_{\mathrm{m}}
+\]</span></p>
+<p>The total error decomposition into truncation and rounding errors
+follows: <span class="math display">\[
+f&#39;(x) - \hat f&#39;_{\mathrm{CD}_2}(x) = f&#39;(x) -
+\frac{0.5([-\hat f(x-h)] + [\hat f(x+h)])}{h} \\
+= \underbrace{f&#39;(x) - \frac{0.5(-f(x-h) +
+f(x+h))}{h}}_{\varepsilon_{\mathrm{t}}} +
+\underbrace{\frac{0.5(\varepsilon_{f_2} -
+\varepsilon_{f_1})}{h}}_{\varepsilon_{\mathrm{r}}}  \\
+= \frac{h^2}{6}f&#39;&#39;&#39;(x + \alpha h) +
+\frac{0.5(\varepsilon_{f_2} - \varepsilon_{f_1})}{h} \le
+\frac{h^2}{6}f&#39;&#39;&#39;(x + \alpha h) +
+\frac{0.5|f(x)|\epsilon_{\mathrm{m}}}{h}
+\]</span></p>
+<p>We use an extra approximation <span class="math inline">\(f&#39;&#39;&#39;(x + \alpha h) \approx
+f&#39;&#39;&#39;(x)\)</span> because this term is not the largest source
+of error in this expression. The absolute error of the machine
+approximation of <span class="math inline">\(f&#39;(x)\)</span> becomes
+bounded by the conservative approximation of the total-error
+function</p>
+<p> <span class="math display">\[
+\varepsilon(h) := \frac{|f&#39;&#39;&#39;(x)|}{6}h^2 +
+0.5|f(x)|\epsilon_{\mathrm{m}} h^{-1}.
+\]</span></p>
+<p>Minimising <span class="math inline">\(\varepsilon(h)\)</span> with
+respect to <span class="math inline">\(h\)</span> requires the
+first-order condition <span class="math display">\[
+\varepsilon&#39;(h) = \frac{|f&#39;&#39;&#39;(x)|}{3}h -
+0.5|f(x)|\epsilon_{\mathrm{m}} h^{-2} = 0,
+\]</span> which can be solved for <span class="math inline">\(h &gt;
+0\)</span>: <span class="math display">\[
+\frac{|f&#39;&#39;&#39;(x)|}{3}h = 0.5|f(x)|\epsilon_{\mathrm{m}} h^{-2}
+\quad \Rightarrow \quad  h^*_{\mathrm{CD}_2} = \sqrt[3]{\frac{1.5 |f(x)|
+\epsilon_{\mathrm{m}}}{|f&#39;&#39;&#39;(x)|}}
+\]</span></p>
+<p>This expression has two problems:</p>
+<ol style="list-style-type: decimal">
+<li>Recursivity: we approximate the unknown first derivative with a
+finite difference, and the optimal step size involves the unknown third
+derivative. One may assume any order of its magnitude, e.g. <span class="math inline">\(|f&#39;&#39;&#39;(x)| = 1\)</span>, or use a rough
+numerical plug-in ‘guesstimate’ of <span class="math inline">\(f&#39;&#39;&#39;(x)\)</span> calculated on the
+smallest sufficient stencil (obtained via <code>fdCoef(3)</code>) and
+any reasonable <em>ad hoc</em> step size. <span class="math inline">\(10^{-4}\)</span> seems an acceptable plug-in value
+of <span class="math inline">\(h\)</span> for <span class="math inline">\(f&#39;&#39;&#39;_{\mathrm{CD}_2}\)</span>; <span class="citation">Dumontet and Vignes (1977)</span> describe a better
+approach, which we summarise in a dedicated section below. If computing
+a rough version of <span class="math inline">\(f&#39;&#39;&#39;(x)\)</span> is too costly, assume
+<span class="math inline">\(|f(x) / f&#39;&#39;&#39;(x)| \approx
+2/3\)</span>, which yields the simplest rule of thumb <span class="math inline">\(h^* \approx \sqrt[3]{\epsilon_{\mathrm{m}}}
+\approx 6\cdot 10^{-6}\)</span>. If <span class="math inline">\(f\)</span> is suspected to have a high curvature,
+decrease <span class="math inline">\(h\)</span>, and if <span class="math inline">\(f\)</span> changes at a steady rate, increase
+it.</li>
+<li>If <span class="math inline">\(f&#39;&#39;&#39;(x) \approx
+0\)</span>, then, the optimal step size calculation involves division by
+near-zero numbers. Quadratic objective functions would be one such
+example: <span class="math inline">\(f&#39;&#39;&#39;(x) = 0\ \forall x
+\in \mathbb{R}\)</span>. In this case, <span class="math inline">\(f&#39;(x)\)</span> is a linear function that is
+defined by two points; therefore, any larger step size can be used to
+determine the coefficients of this line equation, yielding a near-zero
+truncation error. If <span class="math inline">\(f(x)\)</span> is not
+linear and has <span class="math inline">\(f&#39;&#39;&#39;(x) \approx
+0\)</span>, but <span class="math inline">\(|f&#39;&#39;&#39;&#39;(x)|\)</span> and
+higher-order derivatives are not zero, data-driven procedures may be
+needed to find the optimal step size, although <span class="math inline">\(O(h^3)\)</span> might be sufficiently close to
+zero to ignore it completely.</li>
+</ol>
+<p>The decrease in accuracy due to incorrect assumptions about <span class="math inline">\(|f(x) / f&#39;&#39;&#39;(x)|\)</span> depends on
+the ratio. If <span class="math inline">\(|f&#39;&#39;&#39;(x)| \approx
+|f(x)| \approx 1\)</span> at some point <span class="math inline">\(x\)</span>, the total-error function is more
+sensitive to larger <span class="math inline">\(h\)</span> in relative
+terms, but to smaller <span class="math inline">\(h\)</span> in absolute
+in the neighbourhood of <span class="math inline">\(h^*\)</span>, which
+can be seen in the logarithmic and linear plots:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a>hseq <span class="ot">&lt;-</span> <span class="dv">10</span><span class="sc">^</span><span class="fu">seq</span>(<span class="sc">-</span><span class="dv">9</span>, <span class="sc">-</span><span class="dv">3</span>, <span class="at">length.out =</span> <span class="dv">101</span>)</span>
+<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a>hopt <span class="ot">&lt;-</span> (<span class="fl">1.5</span> <span class="sc">*</span> .Machine<span class="sc">$</span>double.eps)<span class="sc">^</span>(<span class="dv">1</span><span class="sc">/</span><span class="dv">3</span>)</span>
+<span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a>e <span class="ot">&lt;-</span> <span class="cf">function</span>(h) h<span class="sc">^</span><span class="dv">2</span><span class="sc">/</span><span class="dv">6</span> <span class="sc">+</span> <span class="fl">0.5</span><span class="sc">*</span>.Machine<span class="sc">$</span>double.eps <span class="sc">/</span> h</span>
+<span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a><span class="fu">plot</span>(hseq, <span class="fu">e</span>(hseq), <span class="at">log =</span> <span class="st">&quot;xy&quot;</span>, <span class="at">xlab =</span> <span class="st">&quot;Step size&quot;</span>, <span class="at">ylab =</span> <span class="st">&quot;Total error&quot;</span>, <span class="at">asp =</span> <span class="dv">1</span>,</span>
+<span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a>     <span class="at">bty =</span> <span class="st">&quot;n&quot;</span>, <span class="at">type =</span> <span class="st">&quot;l&quot;</span>, <span class="at">main =</span> <span class="st">&quot;Inaccuracy of CD-based derivatives (logarithmic)&quot;</span>)</span>
+<span id="cb2-6"><a href="#cb2-6" tabindex="-1"></a><span class="fu">abline</span>(<span class="at">v =</span> hopt, <span class="at">lty =</span> <span class="dv">2</span>)</span></code></pre></div>
+<p><img role="img" src="data:image/png;base64,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" width="10cm" /></p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a>hseq2 <span class="ot">&lt;-</span> <span class="fu">seq</span>(hopt <span class="sc">-</span> <span class="fl">5e-6</span>, hopt <span class="sc">+</span> <span class="fl">5e-6</span>, <span class="at">length.out =</span> <span class="dv">101</span>)</span>
+<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a><span class="fu">plot</span>(hseq2, <span class="fu">e</span>(hseq2), <span class="at">xlab =</span> <span class="st">&quot;Step size&quot;</span>, <span class="at">ylab =</span> <span class="st">&quot;Total error&quot;</span>, <span class="at">bty =</span> <span class="st">&quot;n&quot;</span>,</span>
+<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a>     <span class="at">type =</span> <span class="st">&quot;l&quot;</span>, <span class="at">main =</span> <span class="st">&quot;Inaccuracy of CD-based derivatives (linear)&quot;</span>)</span>
+<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a><span class="fu">abline</span>(<span class="at">v =</span> hopt, <span class="at">lty =</span> <span class="dv">2</span>)</span></code></pre></div>
+<p><img role="img" src="data:image/png;base64,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" width="10cm" /></p>
+<p>With this optimal step size, the total error function attains its
+minimum value of order <span class="math inline">\(O(\epsilon_{\mathrm{m}}^{2/3})\)</span>,
+translating to 10–11 accurate decimal significant digits.</p>
+<p></p>
+<p>Other bounds for the numerator round-off error exist in the
+literature. <span class="citation">Sauer (2017)</span> assumes <span class="math inline">\(|f(x)| \approx 1\)</span> and <span class="math inline">\(|\varepsilon_{f,1}| \approx |\varepsilon_{f,2}|
+\approx \epsilon_{\mathrm{m}}\)</span>. The latter assumption is too
+conservative compared to his earlier statement from Chapter 0 that the
+relative rounding error is at most <span class="math inline">\(\epsilon_{\mathrm{m}} / 2\)</span>. Even if the
+round-off error is accumulated through <span class="math inline">\([x+h]
+\ne x-h\)</span> and <span class="math inline">\(|f&#39;(x)| &gt;
+1\)</span>, this conservatism is stronger than the conservatism in our
+derivation, and the worst case is much less likely than the typical
+case. The absolute difference <span class="math inline">\(|\varepsilon_{f_2} - \varepsilon_{f_1}|\)</span>,
+bounded above by <span class="math inline">\(\epsilon_{\mathrm{m}}
+|f(x)|\)</span>, takes smaller values in most cases. If the relative
+rounding errors are independently uniformly distributed over <span class="math inline">\([-\epsilon_{\mathrm{m}}/2,
+\epsilon_{\mathrm{m}}/2]\)</span>, then <span class="math inline">\(\varepsilon_{f_2} - \varepsilon_{f_1}\)</span> has
+a <em>triangular</em> (not uniform) distribution on <span class="math inline">\([-\epsilon_{\mathrm{m}},
+\epsilon_{\mathrm{m}}]\)</span> with density <span class="math inline">\(\frac{1-|t|}{\epsilon_{\mathrm{m}}} \mathbb{I}(t
+\le \epsilon_{\mathrm{m}})\)</span>. If the total rounding error were
+uniformly distributed on <span class="math inline">\([-\epsilon_{\mathrm{m}},
+\epsilon_{\mathrm{m}}]\)</span>, its variance and mean absolute
+deviation would be 2 and 1.5 times higher, respectively. <span class="citation">Gill, Murray, and Wright (1981)</span> remark in
+Section 8.5.1.1 that even if the function-rounding error is
+theoretically bounded by some number <span class="math inline">\(\varepsilon^*\)</span>, this number may not be
+unique: multiple upper bounds may exist. The bound should represent a
+good estimate of the rounding error at all points in the neighbourhood
+of the evaluation point, which is usually achievable through
+rounding-error analysis. For many applied researchers, the goal is
+minimising the total error comprising the <em>average</em> (not maximum)
+absolute rounding error, as in <span class="citation">Dumontet and
+Vignes (1977)</span>. In this case, the rounding-error component must be
+divided by 1.5: <span class="math display">\[
+\varepsilon_{\mathrm{r}} \le \frac{|f(x)|\epsilon_{\mathrm{m}}}{3h}
+\quad \Rightarrow \quad h^*_{\mathrm{CD}_2} = \sqrt[3]{\frac{|f(x)|
+\epsilon_{\mathrm{m}}}{|f&#39;&#39;&#39;(x)|}}.
+\]</span> This translates to the step size being 1.145 times shorter
+than the one relying on the conservative rounding-error bound.
+Intuitively, a smaller rounding-error component allows the user to gain
+accuracy by reducing the truncation-related part of the error, although
+in most applications, this factor may be safely ignored.</p>
+<p>The opposite occurs if <span class="math inline">\(f(x+h)\)</span>
+and <span class="math inline">\(f(x-h)\)</span> come from a numerical
+routine with limited accuracy. In such cases, the relative error of each
+evaluation is much higher, and the bound on the difference <span class="math inline">\(|\varepsilon_{f,2} - \varepsilon_{f,1}|\)</span>
+must be adjusted accordingly. See Section~<span class="math inline">\(\ref{sec:noisy}\)</span> for examples of such
+adjustments.</p>
+</div>
+<div id="one-sided-derivatives" class="section level2" number="3.2">
+<h2><span class="header-section-number">3.2</span> One-sided
+derivatives</h2>
+<p></p>
+<p>We apply a similar argument to compute one-sided numerical
+derivatives of costly functions when the value <span class="math inline">\(f(x)\)</span> is already known and only <span class="math inline">\(f(x+h)\)</span> remains to be computed.</p>
+<p></p>
+<p>Mathematicians noticed the superior accuracy of approximations of
+functions on grids symmetric around the value of interest more than a
+century ago. Symmetric stencils for evaluations of derivatives were
+explicirtly proposed in <span class="citation">Aitken (1938)</span>,
+following his 1932 paper on interpolation by iteration based on an
+earlier 1928 result by C. Jordan that recast the 1901 Everett
+interpolation formula into a format that was more parsimonious in terms
+of computations. The computational advantages and higher accuracy of
+symmetric stencils on finite-precision computers were restated by <span class="citation">Oliver and Ruffhead (1975)</span>, who advocate the use
+of symmetric stencils ‘wherever possible’.</p>
+<p>Although inferior in terms of accuracy, one-sided derivatives might
+be the only feasible solution where one evaluation of <span class="math inline">\(f(x)\)</span> takes dozens of seconds or where the
+gradient-based optimisation routines takes too many steps to converge.
+Except for the situations where the curvature of a computationally
+expensive function must be inferred from what the researcher can glean
+from existing cached results, there are no other practical or
+theoretical reasons to use one-sided derivatives with more than two grid
+points instead of two-sided ones.</p>
+<p>&lt;…&gt;</p>
+<p>The fact that FD approximations have such a high total error was
+noted by early researchers (<span class="citation">Gill, Murray, and
+Wright (1981)</span>, Section 8.2.2) and can be summarised as follows:
+<strong>at least half of all digits of a FD numerical derivative are
+wrong</strong>. The ‘at least’ part is due to the function scaling and
+step size; higher accuracy cannot simply be achieved. To the contrary,
+<strong>at least 1/3 of all digits of a CD numerical derivative are
+wrong</strong>, which leaves more room for error in such applications
+optimising with a gradient-based stopping rule. If the algorithm
+terminates when the Euclidean norm of the gradient is less than some
+tolerance (usually <span class="math inline">\(\approx
+\sqrt{\epsilon_{\mathrm{m}}}\)</span>, then, the FD derivative with
+error magnitude comparable to the tolerance should be rejected in favour
+of the more accurate CD derivative. This does not apply if the
+maximisation is preliminary and a more accurate optimiser at a later
+stage refines the argument value for a more rigorous solution.</p>
+</div>
+<div id="second-derivatives" class="section level2" number="3.3">
+<h2><span class="header-section-number">3.3</span> Second
+derivatives</h2>
+<p>The formula~<span class="math inline">\(\eqref{eq:wsum}\)</span>
+yields the coefficients for derivatives of any order; the following
+invocation of <code>fdCoef()</code> yields the optimal coefficients for
+the standard symmetric stencil.</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a><span class="fu">fdCoef</span>(<span class="at">deriv.order =</span> <span class="dv">2</span>, <span class="at">acc.order =</span> <span class="dv">2</span>) <span class="co"># Same as fdCoef(2)</span></span>
+<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a><span class="co">#&gt; $stencil</span></span>
+<span id="cb4-3"><a href="#cb4-3" tabindex="-1"></a><span class="co">#&gt; [1] -1  0  1</span></span>
+<span id="cb4-4"><a href="#cb4-4" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb4-5"><a href="#cb4-5" tabindex="-1"></a><span class="co">#&gt; $weights</span></span>
+<span id="cb4-6"><a href="#cb4-6" tabindex="-1"></a><span class="co">#&gt; x-1h    x x+1h </span></span>
+<span id="cb4-7"><a href="#cb4-7" tabindex="-1"></a><span class="co">#&gt;    1   -2    1 </span></span>
+<span id="cb4-8"><a href="#cb4-8" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb4-9"><a href="#cb4-9" tabindex="-1"></a><span class="co">#&gt; attr(,&quot;remainder.coef&quot;)</span></span>
+<span id="cb4-10"><a href="#cb4-10" tabindex="-1"></a><span class="co">#&gt; [1] 0.08333333</span></span>
+<span id="cb4-11"><a href="#cb4-11" tabindex="-1"></a><span class="co">#&gt; attr(,&quot;accuracy.order&quot;)</span></span>
+<span id="cb4-12"><a href="#cb4-12" tabindex="-1"></a><span class="co">#&gt; requested effective </span></span>
+<span id="cb4-13"><a href="#cb4-13" tabindex="-1"></a><span class="co">#&gt;         2         2 </span></span>
+<span id="cb4-14"><a href="#cb4-14" tabindex="-1"></a><span class="co">#&gt; attr(,&quot;expansion&quot;)</span></span>
+<span id="cb4-15"><a href="#cb4-15" tabindex="-1"></a><span class="co">#&gt; [1] &quot;f&#39;&#39; + 8.3333e-02 f&#39;&#39;&#39;&#39; + ...&quot;</span></span></code></pre></div>
+<p>To find the best approximation on this stencil, we use a similar
+expansion to quantify the truncation error: <span class="math display">\[
+f&#39;&#39;(x) = \frac{f(x-h) - 2f(x) + f(x+h)}{h^2} + O(h^2)
+\]</span> <span class="math display">\[
+f(x\pm h) = f(x) \pm \frac{h}{1!}\cdot f&#39;(x) + \frac{h^2}{2!}
+f&#39;&#39;(x) \pm \frac{h^3}{3!} f&#39;&#39;&#39;(x) + \frac{h^4}{4!}
+f&#39;&#39;&#39;&#39;(x+\alpha_4 h)
+\]</span> where <span class="math inline">\(\alpha_4^+, \alpha_4 \in [0,
+1]\)</span> and <span class="math inline">\(\alpha_4 \in [-1,
+1]\)</span>.</p>
+<p></p>
+<p>The approximations differ from the true derivatives by the following
+terms: <span class="math display">\[
+f&#39;&#39;_{\mathrm{CD}}(x) = \frac{f(x-h) - 2 f(x) + f(x+h)}{h^2}  \\
+= \frac{h^2 f&#39;&#39;(x) + \frac{h^4}{24}
+(f&#39;&#39;&#39;&#39;(x+\alpha_{4}^+ h) +  f&#39;&#39;&#39;&#39;(x -
+\alpha_{4}^- h)) }{h^2} = f&#39;&#39;(x) +
+\frac{h^2}{12}f&#39;&#39;&#39;&#39;(x + \alpha_4 h),
+\]</span> where <span class="math inline">\(\alpha_4 \in [0,
+1]\)</span>.</p>
+<p>Since <span class="math inline">\(h\to 0\)</span>, we use the same
+approximate bound for steps of length <span class="math inline">\(2h\)</span>: <span class="math display">\[
+|[f(x\pm 2h)] - f(x\pm 2h)| \le 0.5|f(x \pm 2h)|\epsilon_{\mathrm{m}}
+\approx 0.5|f(x)|\epsilon_{\mathrm{m}}
+\]</span> The rounding error in the numerator is bounded thusly: <span class="math display">\[
+[f(x-h)] - 2[f(x)] + [f(x+h)] = f(x-h) + \varepsilon_1 - 2(f(x) +
+\varepsilon_2) + f(x-h) + \varepsilon_3 \\
+\le f(x-h) - 2f(x) + f(x+h) + 4\cdot 0.5|f(x)| \cdot
+\epsilon_{\mathrm{m}} \\
+= f(x-h) - 2f(x) + f(x+h) + 2 |f(x)| \epsilon_{\mathrm{m}}
+\]</span></p>
+<p>The overall error is <span class="math display">\[
+f&#39;&#39;(x) - \hat f&#39;&#39;_\mathrm{CD}(x) = f&#39;&#39;(x) -
+\frac{[f(x-h)] - 2[f(x)] + [f(x+h)]}{h^2} \\
+\le f&#39;&#39;(x) - \frac{f(x-h) - 2f(x) + f(x+h)}{h^2} + \frac{2
+|f(x)| \epsilon_{\mathrm{m}} }{h^2} \\
+\approx \frac{h^2}{12}f&#39;&#39;&#39;&#39;(x + \alpha_4 h) + \frac{2
+|f(x)| \epsilon_{\mathrm{m}} }{h^2}
+\]</span></p>
+<p>Since <span class="math inline">\(f&#39;&#39;&#39;&#39;(x + \alpha_4
+h) \approx f&#39;&#39;&#39;&#39;(x)\)</span>, the absolute error of
+<span class="math inline">\(f&#39;&#39;_{\mathrm{CD}_2}(x)\)</span> is
+bounded by <span class="math display">\[
+\varepsilon(h) := \frac{|f&#39;&#39;&#39;&#39;(x)|}{12}h^2 +
+2|f(x)|\epsilon_{\mathrm{m}} h^{-2}
+\]</span></p>
+<p>Minimising <span class="math inline">\(\varepsilon(h)\)</span> with
+respect to <span class="math inline">\(h\)</span> yields <span class="math display">\[
+\varepsilon&#39;(h) = \frac{|f&#39;&#39;&#39;&#39;(x)|}{6}h -
+4|f(x)|\epsilon_{\mathrm{m}} h^{-3} = 0,
+\]</span> <span class="math display">\[
+\frac{|f&#39;&#39;&#39;&#39;(x)|}{6}h = 4|f(x)|\epsilon_{\mathrm{m}}
+\frac{1}{h^3} \quad \Rightarrow \quad h = \sqrt[4]{\frac{24 |f(x)|
+\epsilon_{\mathrm{m}}}{|f&#39;&#39;&#39;&#39;(x)|}}
+\]</span></p>
+<p>Without additional information about the function, one can assume
+<span class="math inline">\(|f(x) / f&#39;&#39;&#39;&#39;(x)| \approx
+1\)</span> and take <span class="math inline">\(h^* = \sqrt[4]{24
+\epsilon_{\mathrm{m}}} \approx 0.00027\)</span>. If higher-order
+derivatives of <span class="math inline">\(f\)</span> are close to zero,
+then, there is no penalty in taking larger steps.</p>
+</div>
+<div id="higher-derivatives" class="section level2" number="3.4">
+<h2><span class="header-section-number">3.4</span> Higher
+derivatives</h2>
+<p>The analysis for third and fourth differences contains a new obstacle
+because it involves steps in multiples of <span class="math inline">\(h\)</span>.</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a>w3 <span class="ot">&lt;-</span> <span class="fu">fdCoef</span>(<span class="dv">3</span>)</span>
+<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a>w4 <span class="ot">&lt;-</span> <span class="fu">fdCoef</span>(<span class="dv">4</span>)</span>
+<span id="cb5-3"><a href="#cb5-3" tabindex="-1"></a><span class="fu">print</span>(w3)</span>
+<span id="cb5-4"><a href="#cb5-4" tabindex="-1"></a><span class="co">#&gt; $stencil</span></span>
+<span id="cb5-5"><a href="#cb5-5" tabindex="-1"></a><span class="co">#&gt; [1] -2 -1  1  2</span></span>
+<span id="cb5-6"><a href="#cb5-6" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb5-7"><a href="#cb5-7" tabindex="-1"></a><span class="co">#&gt; $weights</span></span>
+<span id="cb5-8"><a href="#cb5-8" tabindex="-1"></a><span class="co">#&gt; x-2h x-1h x+1h x+2h </span></span>
+<span id="cb5-9"><a href="#cb5-9" tabindex="-1"></a><span class="co">#&gt; -0.5  1.0 -1.0  0.5 </span></span>
+<span id="cb5-10"><a href="#cb5-10" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb5-11"><a href="#cb5-11" tabindex="-1"></a><span class="co">#&gt; attr(,&quot;remainder.coef&quot;)</span></span>
+<span id="cb5-12"><a href="#cb5-12" tabindex="-1"></a><span class="co">#&gt; [1] 0.25</span></span>
+<span id="cb5-13"><a href="#cb5-13" tabindex="-1"></a><span class="co">#&gt; attr(,&quot;accuracy.order&quot;)</span></span>
+<span id="cb5-14"><a href="#cb5-14" tabindex="-1"></a><span class="co">#&gt; requested effective </span></span>
+<span id="cb5-15"><a href="#cb5-15" tabindex="-1"></a><span class="co">#&gt;         2         2 </span></span>
+<span id="cb5-16"><a href="#cb5-16" tabindex="-1"></a><span class="co">#&gt; attr(,&quot;expansion&quot;)</span></span>
+<span id="cb5-17"><a href="#cb5-17" tabindex="-1"></a><span class="co">#&gt; [1] &quot;f&#39;&#39;&#39; + 2.5000e-01 f^(5) + ...&quot;</span></span>
+<span id="cb5-18"><a href="#cb5-18" tabindex="-1"></a><span class="fu">print</span>(w4)</span>
+<span id="cb5-19"><a href="#cb5-19" tabindex="-1"></a><span class="co">#&gt; $stencil</span></span>
+<span id="cb5-20"><a href="#cb5-20" tabindex="-1"></a><span class="co">#&gt; [1] -2 -1  0  1  2</span></span>
+<span id="cb5-21"><a href="#cb5-21" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb5-22"><a href="#cb5-22" tabindex="-1"></a><span class="co">#&gt; $weights</span></span>
+<span id="cb5-23"><a href="#cb5-23" tabindex="-1"></a><span class="co">#&gt; x-2h x-1h    x x+1h x+2h </span></span>
+<span id="cb5-24"><a href="#cb5-24" tabindex="-1"></a><span class="co">#&gt;    1   -4    6   -4    1 </span></span>
+<span id="cb5-25"><a href="#cb5-25" tabindex="-1"></a><span class="co">#&gt; </span></span>
+<span id="cb5-26"><a href="#cb5-26" tabindex="-1"></a><span class="co">#&gt; attr(,&quot;remainder.coef&quot;)</span></span>
+<span id="cb5-27"><a href="#cb5-27" tabindex="-1"></a><span class="co">#&gt; [1] 0.1666667</span></span>
+<span id="cb5-28"><a href="#cb5-28" tabindex="-1"></a><span class="co">#&gt; attr(,&quot;accuracy.order&quot;)</span></span>
+<span id="cb5-29"><a href="#cb5-29" tabindex="-1"></a><span class="co">#&gt; requested effective </span></span>
+<span id="cb5-30"><a href="#cb5-30" tabindex="-1"></a><span class="co">#&gt;         2         2 </span></span>
+<span id="cb5-31"><a href="#cb5-31" tabindex="-1"></a><span class="co">#&gt; attr(,&quot;expansion&quot;)</span></span>
+<span id="cb5-32"><a href="#cb5-32" tabindex="-1"></a><span class="co">#&gt; [1] &quot;f&#39;&#39;&#39;&#39; + 1.6667e-01 f^(6) + ...&quot;</span></span></code></pre></div>
+<p><span class="math display">\[
+f&#39;&#39;&#39;(x) = \frac{-0.5f(x-2h) + f(x-h) - f(x+h) +
+0.5f(x+2h)}{h^3} + O(h^4)
+\]</span> <span class="math display">\[
+f&#39;&#39;&#39;&#39;(x) = \frac{f(x-2h) - 4f(x-h) + 6f(x) - 4f(x+h) +
+f(x+2h)}{h^4} + O(h^5)
+\]</span></p>
+<p>The Taylor expansions for step-size multipliers <span class="math inline">\(c \in \{1, 2\}\)</span> are <span class="math display">\[
+f(x\pm c\cdot h) = f(x) \pm \frac{ch}{1!}\cdot f&#39;(x) +
+\frac{(ch)^2}{2!} f&#39;&#39;(x) \pm \frac{(ch)^3}{3!}
+f&#39;&#39;&#39;(x) + \frac{(ch)^4}{4!} f&#39;&#39;&#39;&#39;(x) \\
+\pm\begin{cases}
+\frac{(ch)^5}{5!} f^{(V)}(x + \alpha ch), &amp; m=3\\
+\frac{(ch)^5}{5!} f^{(V)}(x) + \frac{(ch)^6}{6!} f^{(VI)}(x+\alpha ch),
+&amp; m=4,
+\end{cases}
+\]</span> where <span class="math inline">\(\alpha \in [0,
+1]\)</span>.</p>
+<p>The value of the multiplier <span class="math inline">\(\alpha\)</span> in the Lagrange remainder is
+different for each step <span class="math inline">\(\pm h\)</span>,
+<span class="math inline">\(\pm 2h\)</span>. For <span class="math inline">\(m=3\)</span>, the expression becomes <span class="math display">\[
+f&#39;&#39;&#39;_{\mathrm{CD}}(x) = \frac{0.5(-f(x-2h) + 2f(x-h) - 2
+f(x+h) + f(x+2h))}{h^3}  \\
+= \frac{h^3 f&#39;&#39;&#39;(x) + \frac{h^5}{240} (32
+f^{(V)}(x+2\alpha_{51} h) - 2f^{(V)}(x+\alpha_{52} h) -
+2f^{(V)}(x-\alpha_{53} h) +  32 f^{(V)}(x+2\alpha_{54} h)}{h^3},
+\]</span> where <span class="math inline">\(\alpha_{51}, \alpha_{52},
+\alpha_{53}, \alpha_{54} \in [0, 1]\)</span>. Here, the GIVT cannot be
+applied because not all coefficients on <span class="math inline">\(f^{(V)}\)</span> are positive. They can still be
+grouped: <span class="math display">\[
+32 f^{(V)}(x+2\alpha_{51} h) - 2f^{(V)}(x+\alpha_{52} h) -
+2f^{(V)}(x-\alpha_{53} h) +  32 f^{(V)}(x+2\alpha_{54} h) \\
+= 64 f^{(V)} (x + 2\alpha_{5p}h) - 4 f^{(V)} (x + \alpha_{5m}h),
+\]</span> where <span class="math inline">\(\alpha_{5p}, \alpha_{5m} \in
+[0, 1]\)</span>. To place an upper bound on this term, we use the
+triangle inequality for the terms’ absolute values: <span class="math display">\[
+64 f^{(V)} (x + 2\alpha_{5p}) - 4 f^{(V)} (x + \alpha_{5m}) \le 64|
+f^{(V)} (x + 2\alpha_{5p}h)| + 4|f^{(V)} (x + \alpha_{5m}h)| \\
+\le 68 \max\{| f^{(V)} (x + 2\alpha_{5p}h)|, |f^{(V)} (x +
+\alpha_{5m}h)|\}
+\]</span> Again, we rely on <span class="math inline">\(h\to0\)</span>
+to obtain <span class="math inline">\(f^{(V)} (x + 2\alpha_{5p}h)
+\approx f^{(V)}(x)  \approx f^{(V)} (x + \alpha_{5m}h) \approx
+f^{(V)}(x)\)</span>.</p>
+<p>Instead of repeating the same chain of calculations with obfuscated
+notation, we show how to obtain the coefficients on the non-vanishing
+higher-order terms for <span class="math inline">\(m=4\)</span>
+algorithmically:</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a>denom  <span class="ot">&lt;-</span> <span class="fu">factorial</span>(<span class="dv">0</span><span class="sc">:</span><span class="dv">6</span>)</span>
+<span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a><span class="fu">names</span>(denom) <span class="ot">&lt;-</span> <span class="fu">paste0</span>(<span class="st">&quot;f&#39;&quot;</span>, <span class="dv">0</span><span class="sc">:</span><span class="dv">6</span>)</span>
+<span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a>num<span class="fl">.0</span>  <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="fu">rep</span>(<span class="dv">0</span>, <span class="dv">6</span>)) <span class="co"># f(x) = f(x) + 0*f&#39;(x) + 0*f&#39;&#39;(x) + ...</span></span>
+<span id="cb6-4"><a href="#cb6-4" tabindex="-1"></a>num.h  <span class="ot">&lt;-</span> <span class="fu">rep</span>(<span class="dv">1</span>, <span class="dv">7</span>)</span>
+<span id="cb6-5"><a href="#cb6-5" tabindex="-1"></a>num<span class="fl">.2</span>h <span class="ot">&lt;-</span> <span class="dv">2</span><span class="sc">^</span>(<span class="dv">0</span><span class="sc">:</span><span class="dv">6</span>)</span>
+<span id="cb6-6"><a href="#cb6-6" tabindex="-1"></a><span class="co"># f(x-ch) = f - ch f&#39; + (ch)^2/2 f&#39;&#39; - (ch)^3/6 f&#39;&#39;&#39; ...</span></span>
+<span id="cb6-7"><a href="#cb6-7" tabindex="-1"></a>num.mh  <span class="ot">&lt;-</span> <span class="fu">suppressWarnings</span>(num.h <span class="sc">*</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="sc">-</span><span class="dv">1</span>)) <span class="co"># Relying on recycling</span></span>
+<span id="cb6-8"><a href="#cb6-8" tabindex="-1"></a>num.m2h <span class="ot">&lt;-</span> <span class="fu">suppressWarnings</span>(num<span class="fl">.2</span>h <span class="sc">*</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="sc">-</span><span class="dv">1</span>))</span>
+<span id="cb6-9"><a href="#cb6-9" tabindex="-1"></a>num <span class="ot">&lt;-</span> <span class="fu">colSums</span>(<span class="fu">rbind</span>(num.m2h, num.mh, num<span class="fl">.0</span>, num.h, num<span class="fl">.2</span>h) <span class="sc">*</span> w4<span class="sc">$</span>weights)</span>
+<span id="cb6-10"><a href="#cb6-10" tabindex="-1"></a><span class="fu">print</span>(<span class="fu">round</span>(num <span class="sc">/</span> denom, <span class="dv">5</span>))</span>
+<span id="cb6-11"><a href="#cb6-11" tabindex="-1"></a><span class="co">#&gt;     f&#39;0     f&#39;1     f&#39;2     f&#39;3     f&#39;4     f&#39;5     f&#39;6 </span></span>
+<span id="cb6-12"><a href="#cb6-12" tabindex="-1"></a><span class="co">#&gt; 0.00000 0.00000 0.00000 0.00000 1.00000 0.00000 0.16667</span></span></code></pre></div>
+<p>As expected, there is a unit coefficient on the 4<sup>th</sup>-order
+term. However, the last term shown above is not the correct one because
+the non-applicability of the GIVT requires a higher upper bound through
+the use of absolute values:</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="fu">sum</span>(<span class="fu">abs</span>(w4<span class="sc">$</span>weights[<span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">2</span>, <span class="dv">4</span>, <span class="dv">5</span>)] <span class="sc">*</span></span>
+<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a>          <span class="fu">c</span>(num.m2h[<span class="dv">7</span>], num.mh[<span class="dv">7</span>], num.h[<span class="dv">7</span>], num<span class="fl">.2</span>h[<span class="dv">7</span>]))) <span class="sc">/</span> denom[<span class="dv">7</span>]</span>
+<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a><span class="co">#&gt;       f&#39;6 </span></span>
+<span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a><span class="co">#&gt; 0.1888889</span></span></code></pre></div>
+<p>This yields a coefficient on <span class="math inline">\(f^{(VI)}(x)\)</span> equal to <span class="math inline">\(136/720 = 17/90\)</span>, not <span class="math inline">\(120/720 = 1/6\)</span>.</p>
+<p>As for the rounding errors in the numerator, they are bounded by the
+sum of absolute relative errors. For <span class="math inline">\(m=3\)</span>, <span class="math display">\[
+[-0.5f(x-2h)] + [f(x-h)] - [f(x+h)] + 0.5[f(x+2h)] = \\
+-0.5f(x-h) - 0.5\varepsilon_1 + f(x-h) + \varepsilon_2 - f(x+h) -
+\varepsilon_3 + 0.5f(x+2h) + 0.5\varepsilon_4 \\
+=  \ldots - 0.5\varepsilon_1 + \varepsilon_2 - \varepsilon_3 +
+0.5\varepsilon_4  \\
+\le \ldots + 0.5 |f(x)| \epsilon_{\mathrm{m}} (0.5 + 1 + 1 + 0.5) =
+\ldots + 1.5 |f(x)| \epsilon_{\mathrm{m}}
+\]</span></p>
+<p>For <span class="math inline">\(m=4\)</span>, we compute the
+multiplier on <span class="math inline">\(0.5 |f(x)|
+\epsilon_{\mathrm{m}}\)</span> in one line of code:</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a><span class="fu">sum</span>(<span class="fu">abs</span>(w4<span class="sc">$</span>weights))</span>
+<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a><span class="co">#&gt; [1] 16</span></span></code></pre></div>
+<p>The total errors are thus <span class="math display">\[
+f&#39;&#39;&#39;(x) - [f&#39;&#39;&#39;_\mathrm{CD}(x)] \le
+\varepsilon_3(h) := \frac{17 f^{(V)}(x)}{60} h^2 + \frac{1.5 |f(x)|
+\epsilon_{\mathrm{m}} }{h^3}
+\]</span> <span class="math display">\[
+f&#39;&#39;&#39;&#39;(x) - [f&#39;&#39;&#39;&#39;_\mathrm{CD}(x)] \le
+\varepsilon_4(h) := \frac{17 f^{(VI)}(x)}{90} h^2 + \frac{8 |f(x)|
+\epsilon_{\mathrm{m}}}{h^4}
+\]</span></p>
+<p>Finding the minimum of the total error functions: <span class="math display">\[
+\frac{17|f^{(V)}(x)|}{30}h = 4.5|f(x)|\epsilon_{\mathrm{m}}\frac{1}{h^4}
+\quad \Rightarrow \quad h^*_3 = \sqrt[5]{\frac{135 |f(x)|
+\epsilon_{\mathrm{m}}}{17|f^{(V)}(x)|}}
+\]</span> <span class="math display">\[
+\frac{17|f^{(VI)}(x)|}{45}h = 32|f(x)|\epsilon_{\mathrm{m}}\frac{1}{h^5}
+\quad \Rightarrow \quad h^*_4 = \sqrt[6]{\frac{1440 |f(x)|
+\epsilon_{\mathrm{m}}}{17|f^{(VI)}(x)|}}
+\]</span></p>
+<p>Without any extra information about the function, one can assume
+<span class="math inline">\(|f(x) / f^{(V)}(x)| \approx 1\)</span>,
+<span class="math inline">\(|f(x) / f^{(VI)}(x)| \approx 1\)</span>, and
+take <span class="math inline">\(h^*_3 = \sqrt[5]{\frac{135}{17}
+\epsilon_{\mathrm{m}}} \approx 0.0011\)</span> and <span class="math inline">\(h^* = \sqrt[6]{\frac{1440}{17}
+\epsilon_{\mathrm{m}}} \approx 0.005\)</span>. In applied work,
+functions that are not approximated well by 4<sup>th</sup>- and
+5<sup>th</sup>-order polynomials are not common, which is why it is
+possible that <span class="math inline">\(f^{(V)}(x) \to 0\)</span>,
+<span class="math inline">\(f^{(VI)}(x) \to 0\)</span>, and the main
+source of error is precision loss due to the division by <span class="math inline">\(h^m\)</span>, not poor Taylor approximation.</p>
+</div>
+<div id="fourth-order-accurate-derivatives" class="section level2" number="3.5">
+<h2><span class="header-section-number">3.5</span> Fourth-order-accurate
+derivatives</h2>
+<p>If one requests <code>fdCoef(acc.order = 4)</code>, then, the
+previously obtained result for <span class="math inline">\(h^*_{\mathrm{CD}_2}\)</span> is no longer valid
+because the truncation error depends on a different power of <span class="math inline">\(h\)</span>. We compute this coefficient
+exactly:</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a>w <span class="ot">&lt;-</span> <span class="fu">fdCoef</span>(<span class="at">acc.order =</span> <span class="dv">4</span>)</span>
+<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a>h2 <span class="ot">&lt;-</span> <span class="dv">2</span><span class="sc">^</span>(<span class="dv">0</span><span class="sc">:</span><span class="dv">5</span>)</span>
+<span id="cb9-3"><a href="#cb9-3" tabindex="-1"></a>h  <span class="ot">&lt;-</span> <span class="fu">rep</span>(<span class="dv">1</span>, <span class="dv">6</span>)</span>
+<span id="cb9-4"><a href="#cb9-4" tabindex="-1"></a>hm <span class="ot">&lt;-</span> h <span class="sc">*</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="sc">-</span><span class="dv">1</span>)</span>
+<span id="cb9-5"><a href="#cb9-5" tabindex="-1"></a>h2m <span class="ot">&lt;-</span> h2 <span class="sc">*</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="sc">-</span><span class="dv">1</span>)</span>
+<span id="cb9-6"><a href="#cb9-6" tabindex="-1"></a>coef.tab <span class="ot">&lt;-</span> <span class="fu">rbind</span>(h2m, hm, h, h2) <span class="co"># Here, using rbind is more convenient</span></span>
+<span id="cb9-7"><a href="#cb9-7" tabindex="-1"></a><span class="fu">rownames</span>(coef.tab) <span class="ot">&lt;-</span> <span class="fu">names</span>(w<span class="sc">$</span>weights)</span>
+<span id="cb9-8"><a href="#cb9-8" tabindex="-1"></a><span class="fu">colnames</span>(coef.tab) <span class="ot">&lt;-</span> <span class="fu">paste0</span>(<span class="st">&quot;f&#39;&quot;</span>, <span class="fu">seq_len</span>(<span class="fu">ncol</span>(coef.tab)) <span class="sc">-</span> <span class="dv">1</span>)</span>
+<span id="cb9-9"><a href="#cb9-9" tabindex="-1"></a><span class="fu">print</span>(coef.tab <span class="sc">*</span> w<span class="sc">$</span>weights)</span>
+<span id="cb9-10"><a href="#cb9-10" tabindex="-1"></a><span class="co">#&gt;              f&#39;0        f&#39;1        f&#39;2        f&#39;3        f&#39;4        f&#39;5</span></span>
+<span id="cb9-11"><a href="#cb9-11" tabindex="-1"></a><span class="co">#&gt; x-2h  0.08333333 -0.1666667  0.3333333 -0.6666667  1.3333333 -2.6666667</span></span>
+<span id="cb9-12"><a href="#cb9-12" tabindex="-1"></a><span class="co">#&gt; x-1h -0.66666667  0.6666667 -0.6666667  0.6666667 -0.6666667  0.6666667</span></span>
+<span id="cb9-13"><a href="#cb9-13" tabindex="-1"></a><span class="co">#&gt; x+1h  0.66666667  0.6666667  0.6666667  0.6666667  0.6666667  0.6666667</span></span>
+<span id="cb9-14"><a href="#cb9-14" tabindex="-1"></a><span class="co">#&gt; x+2h -0.08333333 -0.1666667 -0.3333333 -0.6666667 -1.3333333 -2.6666667</span></span>
+<span id="cb9-15"><a href="#cb9-15" tabindex="-1"></a><span class="fu">print</span>(<span class="fu">colSums</span>(coef.tab <span class="sc">*</span> w<span class="sc">$</span>weights))</span>
+<span id="cb9-16"><a href="#cb9-16" tabindex="-1"></a><span class="co">#&gt;           f&#39;0           f&#39;1           f&#39;2           f&#39;3           f&#39;4 </span></span>
+<span id="cb9-17"><a href="#cb9-17" tabindex="-1"></a><span class="co">#&gt;  4.163336e-17  1.000000e+00 -1.665335e-16  4.440892e-16 -9.992007e-16 </span></span>
+<span id="cb9-18"><a href="#cb9-18" tabindex="-1"></a><span class="co">#&gt;           f&#39;5 </span></span>
+<span id="cb9-19"><a href="#cb9-19" tabindex="-1"></a><span class="co">#&gt; -4.000000e+00</span></span></code></pre></div>
+<p>This calculation confirms that there is no <span class="math inline">\(f&#39;&#39;&#39;(x)\)</span> in the expression for
+the difference-based approximation. We apply the same technique due to
+the presence of different step sizes and the non-applicability of the
+GIVT: <span class="math display">\[
+\frac{1}{12} f(x-2h) - \frac23 f(x-h) + \frac23 f(x+h) - \frac{1}{12}
+f(x+2h) = \\
+f&#39;(x) + \frac{h^5}{120}\left(-\frac83f^{(V)}(x-2\alpha_1 h) +
+\frac23 f^{(V)}(x-\alpha_2 h) + \frac23 f^{(V)}(x+\alpha_3 h) - \frac83
+f^{(V)}(x+2\alpha_4 h)  \right)
+\]</span> Some terms in the brackets can still be grouped: <span class="math display">\[
+-\frac83 f^{(V)}(x-2\alpha_1 h) + \frac23 f^{(V)}(x-\alpha_2 h) +
+\frac23 f^{(V)}(x+\alpha_3 h) - \frac83 f^{(V)}(x+2\alpha_4 h) =
+-\frac{16}{3} f^{(V)}(c_1) + \frac43 f^{(V)}(c_2),
+\]</span> where <span class="math inline">\(x-2h \le c_1 \le
+x+2h\)</span> and <span class="math inline">\(x-h \le c_2 \le
+x+h\)</span>. An upper bound through approximation is available:</p>
+<p> <span class="math display">\[
+|af^{(V)}(c_2) - bf^{(V)}(c_1)| \le a|f^{(V)}(c_1)| + b|f^{(V)}(c_2)|,
+\quad |f^{(V)}(c_1)| \approx |f^{(V)}(c_2)| \approx f^{(V)}(x),
+\]</span> therefore, the difference in the numerator is less or equal to
+<span class="math inline">\(\frac{\frac{20}3 |f^{(V)}(x)|}{120}
+h^5\)</span>, and the truncation error is bounded by the same divided by
+<span class="math inline">\(h\)</span>: <span class="math display">\[
+|f&#39;(x) - f&#39;_{\mathrm{CD}_4}(x)| \approx \frac{|f^{(V)}(x)|}{18}
+h^4.
+\]</span></p>
+<p>The rounding error is bounded by the weighted value of <span class="math inline">\(|f(x)|\epsilon_{\mathrm{m}}\)</span>: <span class="math display">\[
+\sum_{i}  [w_i f(x_i)] - \sum_{i}  w_i f(x_i) \le \sum_i |w_i f(x_i)|
+\cdot 0.5\epsilon_{\mathrm{m}},
+\]</span> and since the terms in the numerator are approximately equal
+to <span class="math inline">\(f(x)\)</span>, the absolute rounding
+error is bounded by <span class="math inline">\(0.75 |f(x)|
+\epsilon_{\mathrm{m}}\)</span>:</p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" tabindex="-1"></a><span class="fl">0.5</span><span class="sc">*</span><span class="fu">sum</span>(<span class="fu">abs</span>(w<span class="sc">$</span>weights))</span>
+<span id="cb10-2"><a href="#cb10-2" tabindex="-1"></a><span class="co">#&gt; [1] 0.75</span></span></code></pre></div>
+<p>The total error minimisation problem is similar to the ones solved
+before: <span class="math display">\[
+\varepsilon(h) = \frac{|f^{(V)}(x)|}{18} h^4 + \frac{0.75 |f(x)|
+\epsilon_{\mathrm{m}}}{h}
+\]</span> <span class="math display">\[
+\varepsilon(h) = 0 \quad \Rightarrow \quad \frac{2|f^{(V)}(x)|}{9} h^3 =
+\frac{0.75 |f(x)| \epsilon_{\mathrm{m}}}{h^2} \quad \Rightarrow \quad
+h^{*}_{\mathrm{CD}_4} = \sqrt[5]{\frac{27 |f(x)|
+\epsilon_{\mathrm{m}}}{8 |f^{(V)}(x)|}} \propto
+\sqrt[5]{\epsilon_{\mathrm{m}}}
+\]</span></p>
+<p>The reduction of the truncation error from the Taylor series allows
+for a larger step size for better rounding-error control. The total
+error is therefore of the order <span class="math inline">\(O(\epsilon_{\mathrm{m}}^{4/5})\)</span>, which
+translates into 1–2 more accurate decimal digits compared to the
+second-order-accurate derivative: <span class="math inline">\(\log_{10}  \epsilon_{\mathrm{m}}^{2/3} /
+\epsilon_{\mathrm{m}}^{4/5} \approx 2\)</span>. Of course, this is true
+only if the guessed value of <span class="math inline">\(|f^{(V)}|\)</span> is reasonable.</p>
+</div>
+<div id="general-derivative-and-accuracy-orders" class="section level2" number="3.6">
+<h2><span class="header-section-number">3.6</span> General derivative
+and accuracy orders</h2>
+<p>Although calculation of derivatives of order greater than 4 is of
+purely theoretical interest, we provide a rule of thumb for bandwidth
+choice and the algorithm to compute the coefficients on the error
+components.</p>
+<p>The preceding derivations yield a pattern: every time a higher-order
+derivative is required, the power of <span class="math inline">\(h\)</span> in the denominator increases by 1, and
+the power of <span class="math inline">\(h\)</span> in the numerator
+remains at~2 because the central differences in question are
+second-order-accurate. For the <span class="math inline">\(m\)</span><sup>th</sup> derivative of accuracy
+order <span class="math inline">\(a=2\)</span>, the optimal step size
+<span class="math inline">\(h^*_m\)</span> is <span class="math inline">\(c_m \sqrt[m+2]{\epsilon_{\mathrm{m}}}\)</span>.
+The rough approximation <span class="math inline">\(c_m \approx
+1\)</span> yields <span class="math inline">\(h^*_m \approx
+\sqrt[m+2]{\epsilon_{\mathrm{m}}}\)</span>.</p>
+<p>A slightly finer version relying on analytical expressions is as
+follows. When accuracy of order 2 is requested, the Taylor-series
+truncation error is <span class="math inline">\(O(h^2)\)</span>, and the
+multiplier on <span class="math inline">\(h^2\)</span> depends on the
+<span class="math inline">\((m+2)\)</span><sup>th</sup> derivative of
+<span class="math inline">\(f\)</span>. For step sizes <span class="math inline">\(0, \pm h, \pm 2h, \ldots\)</span> and weights
+<span class="math inline">\(w_{0}, w_{\pm 1}, w_{\pm 2},
+\ldots\)</span>, the coefficients on the non-vanishing terms are
+computed as follows.</p>
+<div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" tabindex="-1"></a>m <span class="ot">&lt;-</span> <span class="dv">7</span>  <span class="co"># Example order</span></span>
+<span id="cb11-2"><a href="#cb11-2" tabindex="-1"></a>w <span class="ot">&lt;-</span> <span class="fu">fdCoef</span>(m)</span>
+<span id="cb11-3"><a href="#cb11-3" tabindex="-1"></a>k <span class="ot">&lt;-</span> <span class="fu">sum</span>(w<span class="sc">$</span>stencil <span class="sc">&gt;</span> <span class="dv">0</span>) <span class="co"># ±h, ±2h, ..., ±kh</span></span>
+<span id="cb11-4"><a href="#cb11-4" tabindex="-1"></a>num.pos <span class="ot">&lt;-</span> <span class="fu">sapply</span>(<span class="dv">1</span><span class="sc">:</span>k, <span class="cf">function</span>(i) i<span class="sc">^</span>(<span class="dv">0</span><span class="sc">:</span>(m<span class="sc">+</span><span class="dv">2</span>)))</span>
+<span id="cb11-5"><a href="#cb11-5" tabindex="-1"></a>num.neg <span class="ot">&lt;-</span> <span class="fu">apply</span>(num.pos, <span class="dv">2</span>, <span class="cf">function</span>(x) x <span class="sc">*</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="sc">-</span><span class="dv">1</span>))</span>
+<span id="cb11-6"><a href="#cb11-6" tabindex="-1"></a>num.neg <span class="ot">&lt;-</span> num.neg[, <span class="fu">rev</span>(<span class="fu">seq_len</span>(<span class="fu">ncol</span>(num.neg)))]</span>
+<span id="cb11-7"><a href="#cb11-7" tabindex="-1"></a>nz <span class="ot">&lt;-</span> <span class="fu">abs</span>(w<span class="sc">$</span>stencil) <span class="sc">&gt;</span> <span class="fl">1e-12</span> <span class="co"># Non-zero function weights</span></span>
+<span id="cb11-8"><a href="#cb11-8" tabindex="-1"></a>coef.tab <span class="ot">&lt;-</span> <span class="fu">sweep</span>(<span class="fu">cbind</span>(num.neg, num.pos), <span class="dv">2</span>, w<span class="sc">$</span>weights[nz], <span class="st">&quot;*&quot;</span>)</span>
+<span id="cb11-9"><a href="#cb11-9" tabindex="-1"></a><span class="fu">rownames</span>(coef.tab) <span class="ot">&lt;-</span> <span class="fu">paste0</span>(<span class="st">&quot;f&#39;&quot;</span>, <span class="fu">seq_len</span>(<span class="fu">nrow</span>(coef.tab))<span class="sc">-</span><span class="dv">1</span>)</span>
+<span id="cb11-10"><a href="#cb11-10" tabindex="-1"></a><span class="fu">colnames</span>(coef.tab) <span class="ot">&lt;-</span> <span class="fu">names</span>(w<span class="sc">$</span>weights[nz])</span>
+<span id="cb11-11"><a href="#cb11-11" tabindex="-1"></a><span class="fu">print</span>(coef.tab)</span>
+<span id="cb11-12"><a href="#cb11-12" tabindex="-1"></a><span class="co">#&gt;         x-4h   x-3h  x-2h x-1h x+1h x+2h   x+3h     x+4h</span></span>
+<span id="cb11-13"><a href="#cb11-13" tabindex="-1"></a><span class="co">#&gt; f&#39;0     -0.5      3    -7    7   -7    7     -3      0.5</span></span>
+<span id="cb11-14"><a href="#cb11-14" tabindex="-1"></a><span class="co">#&gt; f&#39;1      2.0     -9    14   -7   -7   14     -9      2.0</span></span>
+<span id="cb11-15"><a href="#cb11-15" tabindex="-1"></a><span class="co">#&gt; f&#39;2     -8.0     27   -28    7   -7   28    -27      8.0</span></span>
+<span id="cb11-16"><a href="#cb11-16" tabindex="-1"></a><span class="co">#&gt; f&#39;3     32.0    -81    56   -7   -7   56    -81     32.0</span></span>
+<span id="cb11-17"><a href="#cb11-17" tabindex="-1"></a><span class="co">#&gt; f&#39;4   -128.0    243  -112    7   -7  112   -243    128.0</span></span>
+<span id="cb11-18"><a href="#cb11-18" tabindex="-1"></a><span class="co">#&gt; f&#39;5    512.0   -729   224   -7   -7  224   -729    512.0</span></span>
+<span id="cb11-19"><a href="#cb11-19" tabindex="-1"></a><span class="co">#&gt; f&#39;6  -2048.0   2187  -448    7   -7  448  -2187   2048.0</span></span>
+<span id="cb11-20"><a href="#cb11-20" tabindex="-1"></a><span class="co">#&gt; f&#39;7   8192.0  -6561   896   -7   -7  896  -6561   8192.0</span></span>
+<span id="cb11-21"><a href="#cb11-21" tabindex="-1"></a><span class="co">#&gt; f&#39;8 -32768.0  19683 -1792    7   -7 1792 -19683  32768.0</span></span>
+<span id="cb11-22"><a href="#cb11-22" tabindex="-1"></a><span class="co">#&gt; f&#39;9 131072.0 -59049  3584   -7   -7 3584 -59049 131072.0</span></span></code></pre></div>
+<p>This table shows the contribution of each derivative to the numerator
+of the approximation. By construction, the row sums add up to zero
+because every initial term, except for the <span class="math inline">\(m\)</span><sup>th</sup> derivative, must be zeroed
+out:</p>
+<div class="sourceCode" id="cb12"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" tabindex="-1"></a>rs <span class="ot">&lt;-</span> <span class="fu">rowSums</span>(coef.tab)</span>
+<span id="cb12-2"><a href="#cb12-2" tabindex="-1"></a><span class="fu">print</span>(<span class="fu">round</span>(rs, <span class="dv">4</span>))</span>
+<span id="cb12-3"><a href="#cb12-3" tabindex="-1"></a><span class="co">#&gt;    f&#39;0    f&#39;1    f&#39;2    f&#39;3    f&#39;4    f&#39;5    f&#39;6    f&#39;7    f&#39;8    f&#39;9 </span></span>
+<span id="cb12-4"><a href="#cb12-4" tabindex="-1"></a><span class="co">#&gt;      0      0      0      0      0      0      0   5040      0 151200</span></span></code></pre></div>
+<p>The coefficient on the <span class="math inline">\((m+2)\)</span><sup>th</sup> derivative is also
+non-zero, but, as we established before, it underestimates the true
+upper bound. Due to the non-applicability of the GIVT with different
+step sizes, we add up the absolute values of the expansion coefficients.
+Finally, this value must be divided by the denominator – the factorial.
+This yields the coefficient on <span class="math inline">\(h^2\)</span>:</p>
+<div class="sourceCode" id="cb13"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" tabindex="-1"></a><span class="fu">print</span>(c1 <span class="ot">&lt;-</span> <span class="fu">sum</span>(<span class="fu">abs</span>(coef.tab[<span class="fu">nrow</span>(coef.tab), ])) <span class="sc">/</span> <span class="fu">factorial</span>(m<span class="sc">+</span><span class="dv">2</span>))</span>
+<span id="cb13-2"><a href="#cb13-2" tabindex="-1"></a><span class="co">#&gt; [1] 1.067637</span></span></code></pre></div>
+<p>The second part, the rounding error, can be bounded from above by the
+sum of absolute values of the coefficients in the numerator. The
+coefficient on <span class="math inline">\(|f(x)|
+\epsilon_{\mathrm{m}}\)</span> is</p>
+<div class="sourceCode" id="cb14"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" tabindex="-1"></a><span class="fu">print</span>(c2 <span class="ot">&lt;-</span> <span class="fl">0.5</span><span class="sc">*</span><span class="fu">sum</span>(<span class="fu">abs</span>(w<span class="sc">$</span>weights)))</span>
+<span id="cb14-2"><a href="#cb14-2" tabindex="-1"></a><span class="co">#&gt; [1] 17.5</span></span></code></pre></div>
+<p>The expression below is minimised w.r.t. <span class="math inline">\(h\)</span> where solving the FOC is easy because
+both components are power functions: <span class="math display">\[
+\varepsilon(h) = c_1 f^{(m+2)}(x) h^2 + c_2 |f(x)| \epsilon_{\mathrm{m}}
+\frac{1}{h^m}
+\]</span> <span class="math display">\[
+\varepsilon&#39;(h) = 0 \quad \Rightarrow \quad 2c_1 |f^{(m+2)}(x)| h =
+m c_2 |f(x)| \epsilon_{\mathrm{m}} \frac{1}{h^{m+1}} \quad \Rightarrow
+\quad h = \sqrt[m+2]{\frac{mc_2 |f(x)| \epsilon_{\mathrm{m}}}{2c_1
+|f^{(m+2)}(x)|}}
+\]</span></p>
+<p>In general, the optimal step size for the desired accuracy order
+<span class="math inline">\(a\)</span> (even) and derivative order <span class="math inline">\(m\)</span> is proportional to <span class="math inline">\(\sqrt[a+m]{\epsilon_{\mathrm{m}}}\)</span>.</p>
+<p></p>
+<p>The accuracy loss due to the guessed higher-order derivative value
+depends on the exact values of <span class="math inline">\(h\)</span>
+and <span class="math inline">\(h^*\)</span>. As it is shown in Section
+3.4 of <span class="citation">Mathur (2013)</span>, the slope of the
+total-error function is not equal for over- and under-estimated optimal
+step sizes: in logarithmic axes, for <span class="math inline">\(h &gt;
+h^*\)</span>, the slope is positive and is equal to <span class="math inline">\(a\)</span> (accuracy order), and for <span class="math inline">\(h &lt; h^*\)</span>, it is negative and equal to
+<span class="math inline">\(-m\)</span> (differentiation order). For
+higher-order-accurate first derivatives, the optimal size must be larger
+than the optimal size for <span class="math inline">\(a=2\)</span>, but
+not by much, lest the truncation-related part of the error should
+explode, which poses a problem that can be solved via data-driven
+methods. A viable solution is proposed in the same thesis and is
+described in Section .</p>
+</div>
+<div id="cross-derivatives" class="section level2" number="3.7">
+<h2><span class="header-section-number">3.7</span>
+Cross-derivatives</h2>
+<p></p>
+<ul>
+<li>Move the part from the Hessian section here</li>
+</ul>
+</div>
+</div>
+<div id="gradients-jacobians-and-hessians" class="section level1" number="4">
+<h1><span class="header-section-number">4</span> Gradients, Jacobians,
+and Hessians</h1>
+<div id="numerical-gradients" class="section level2" number="4.1">
+<h2><span class="header-section-number">4.1</span> Numerical
+gradients</h2>
+<p></p>
+<ul>
+<li>Gradients are repeated derivatives; choose the optimal size for each
+coordinate</li>
+<li>The theory remains the same</li>
+<li>Compute gradients faster by pre-defining a grid and doind parallel
+calls across all steps for all coordinates to maximise CPU use and
+reduce overhead and idle time</li>
+</ul>
+</div>
+<div id="numerical-jacobians" class="section level2" number="4.2">
+<h2><span class="header-section-number">4.2</span> Numerical
+Jacobians</h2>
+<p></p>
+<ul>
+<li>Jacobians are repeated gradients; choose the optimal size for each
+matrix element</li>
+<li>The theory remains the same</li>
+<li>Same speed-up: pre-define a grid of all parameters (3D: all steps
+<span class="math inline">\(\times\)</span> all input argument
+coordinates <span class="math inline">\(\times\)</span> all output
+function coordinates), do parallel calls</li>
+</ul>
+</div>
+<div id="numerical-hessians-and-cross-derivatives" class="section level2" number="4.3">
+<h2><span class="header-section-number">4.3</span> Numerical Hessians
+and cross-derivatives</h2>
+<p>The Hessian matrix for a function <span class="math inline">\(f\)</span> is denoted by <span class="math inline">\(H_f\)</span> and is defined as the square matrix
+of second-order partial derivatives of <span class="math inline">\(f\)</span>: <span class="math display">\[
+H_f (x) = \nabla^2 f(x) = \left\{ \frac{\partial^2}{\partial x_i
+\partial x_j} f(x)\right\}_{i,j=1}^{\dim x} = \begin{pmatrix}
+  \frac{\partial^2 }{\partial x_1^2} &amp; \cdots &amp; \frac{\partial^2
+}{\partial x_1\,\partial x_p} \\
+  \vdots &amp; \ddots &amp; \vdots \\
+  \frac{\partial^2 }{\partial x_p\,\partial x_1} &amp; \cdots &amp;
+\frac{\partial^2 }{\partial x_p^2}
+\end{pmatrix} f(x)
+\]</span></p>
+<p>The Hessian can be expressed more concisely as the transposed
+Jacobian of the gradient: <span class="math display">\[
+H_f (x) = J^T (\nabla f(x)) = \begin{pmatrix}
+\partial / \partial x_1\ (\nabla f(x))^T \\ \vdots \\ \partial /
+\partial x_p\ (\nabla f(x))^T
+\end{pmatrix}
+\]</span></p>
+<p>The simplest approach to compute Hessian elements numerically is to
+calculate finite differences of finite differences w.r.t. two indices.
+For each <span class="math inline">\(i=1,\ldots,k\)</span>, define <span class="math inline">\(h_i := \begin{pmatrix}0 &amp; \ldots &amp; 0 &amp;
+\underbrace{h}_{i^{\text{th}} \ \text{position}} &amp; 0 &amp; \ldots
+&amp; 0 \end{pmatrix}&#39;\)</span> as the length-<span class="math inline">\(k\)</span> vector where the only non-zero element
+is in the <span class="math inline">\(i\)</span><sup>th</sup>
+coordinate. Then, 4 evaluations of <span class="math inline">\(f\)</span> are required to compute <span class="math inline">\(H_{ij}\)</span> via central differences: <span class="math display">\[
+(\nabla f(x))^{(i)} := \nabla_i f(x)  \approx \frac{f(x + h_i) - f(x -
+h_i)}{2 h}
+\]</span> <span class="math display">\[\begin{equation}\label{eq:nhess}
+H_{ij} \approx \tfrac{\nabla_i f(x + h_j) - \nabla_i f(x - h_j)}{2
+h}  \approx \tfrac{f(x + h_i + h_j) - f(x - h_i + h_j) - f(x + h_i -
+h_j) + f(x - h_i - h_j)}{4h^2}
+\end{equation}\]</span> If <span class="math inline">\(f(x)\)</span> is
+computationally costly, using forward differences <span class="math inline">\(\frac{f(x + h_i) - f(x)}{h}\)</span> requires
+fewer evaluations and sacrifices accuracy for speed gains.</p>
+<p>This weighted sum is similar to the expression for second derivatives
+(<span class="math inline">\(f&#39;&#39;_{\mathrm{CD}}(x)\)</span>), but
+derivation of the truncation error in this case becomes notationally
+more cumbersome. By analogy, we expect the truncation error to be of the
+second order in terms of the power of <span class="math inline">\(h\)</span> and of the fourth order of the
+cross-derivative of <span class="math inline">\(f\)</span>. Therefore,
+the optimal step size for Hessian computation may be safely assumed to
+be of the order <span class="math inline">\(\sqrt[4]{\epsilon_{\mathrm{m}}}\)</span>.
+(Intuitively, a larger step size is required because the division in
+this case is by <span class="math inline">\(h^2\)</span>).</p>
+<p>The main diagonal of the Hessian, <span class="math inline">\(H_{ii}\)</span>, contains second derivatives of
+<span class="math inline">\(f\)</span>, and the result above for
+functions of scalar arguments applies: <span class="math inline">\(h^{**}_{\mathrm{CD}_2} \propto
+\sqrt[4]{\epsilon_{\mathrm{m}}}\)</span>.</p>
+<p>The <span class="math inline">\(f&#39;&#39;\)</span> column
+contributes non-zero off-diagonal elements, and all the terms containing
+<span class="math inline">\(f&#39;&#39;&#39;\)</span> cancel out, which
+can be verified numerically: </p>
+<div class="sourceCode" id="cb15"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" tabindex="-1"></a>getCoefs <span class="ot">&lt;-</span> <span class="cf">function</span>(x, ord) <span class="fu">do.call</span>(expand.grid, <span class="fu">replicate</span>(ord, x, <span class="at">simplify =</span> <span class="cn">FALSE</span>))</span>
+<span id="cb15-2"><a href="#cb15-2" tabindex="-1"></a>rowProd <span class="ot">&lt;-</span> <span class="cf">function</span>(x) <span class="fu">apply</span>(x, <span class="dv">1</span>, prod)</span>
+<span id="cb15-3"><a href="#cb15-3" tabindex="-1"></a>getMults <span class="ot">&lt;-</span> <span class="cf">function</span>(ord) {</span>
+<span id="cb15-4"><a href="#cb15-4" tabindex="-1"></a>  steps  <span class="ot">&lt;-</span> <span class="fu">list</span>(<span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">1</span>), <span class="fu">c</span>(<span class="sc">-</span><span class="dv">1</span>, <span class="dv">1</span>), <span class="fu">c</span>(<span class="dv">1</span>, <span class="sc">-</span><span class="dv">1</span>), <span class="fu">c</span>(<span class="sc">-</span><span class="dv">1</span>, <span class="sc">-</span><span class="dv">1</span>))</span>
+<span id="cb15-5"><a href="#cb15-5" tabindex="-1"></a>  coefs <span class="ot">&lt;-</span> <span class="fu">lapply</span>(steps, getCoefs, <span class="at">ord =</span> ord)</span>
+<span id="cb15-6"><a href="#cb15-6" tabindex="-1"></a>  signs <span class="ot">&lt;-</span> <span class="fu">lapply</span>(coefs, rowProd)</span>
+<span id="cb15-7"><a href="#cb15-7" tabindex="-1"></a>  mults <span class="ot">&lt;-</span> signs[[<span class="dv">1</span>]] <span class="sc">-</span> signs[[<span class="dv">2</span>]] <span class="sc">-</span> signs[[<span class="dv">3</span>]] <span class="sc">+</span> signs[[<span class="dv">4</span>]]</span>
+<span id="cb15-8"><a href="#cb15-8" tabindex="-1"></a>  ntab <span class="ot">&lt;-</span> <span class="fu">expand.grid</span>(<span class="fu">replicate</span>(ord, <span class="fu">c</span>(<span class="st">&quot;i&quot;</span>, <span class="st">&quot;j&quot;</span>), <span class="at">simplify =</span> <span class="cn">FALSE</span>))</span>
+<span id="cb15-9"><a href="#cb15-9" tabindex="-1"></a>  <span class="fu">names</span>(mults) <span class="ot">&lt;-</span> <span class="fu">apply</span>(ntab, <span class="dv">1</span>, paste0, <span class="at">collapse =</span> <span class="st">&quot;&quot;</span>)</span>
+<span id="cb15-10"><a href="#cb15-10" tabindex="-1"></a>  <span class="fu">return</span>(mults)</span>
+<span id="cb15-11"><a href="#cb15-11" tabindex="-1"></a>}</span>
+<span id="cb15-12"><a href="#cb15-12" tabindex="-1"></a></span>
+<span id="cb15-13"><a href="#cb15-13" tabindex="-1"></a><span class="fu">print</span>(<span class="fu">getMults</span>(<span class="dv">2</span>))</span>
+<span id="cb15-14"><a href="#cb15-14" tabindex="-1"></a><span class="co">#&gt; ii ji ij jj </span></span>
+<span id="cb15-15"><a href="#cb15-15" tabindex="-1"></a><span class="co">#&gt;  0  4  4  0</span></span>
+<span id="cb15-16"><a href="#cb15-16" tabindex="-1"></a><span class="fu">print</span>(<span class="fu">getMults</span>(<span class="dv">3</span>))</span>
+<span id="cb15-17"><a href="#cb15-17" tabindex="-1"></a><span class="co">#&gt; iii jii iji jji iij jij ijj jjj </span></span>
+<span id="cb15-18"><a href="#cb15-18" tabindex="-1"></a><span class="co">#&gt;   0   0   0   0   0   0   0   0</span></span></code></pre></div>
+<p>The terms with <span class="math inline">\(f\)</span> and <span class="math inline">\(f&#39;\)</span> disappear, and the 4-term sum
+becomes <span class="math display">\[
+\frac{f(x + h_{ij}) - f(x - h_i + h_j) - f(x + h_i - h_j) + f(x -
+{h_ij})}{4h^2} = \frac{\frac{1}{2}h^2 (4H_{ij} + 4H_{ji}) +
+O(h^4)}{4h^2},
+\]</span> therefore, <span class="math display">\[
+H_{ij} -  \hat H_{ij} = O(h^2),
+\]</span> For large steps, <span class="math inline">\(h \gg 0\)</span>,
+the dominant term in the total error of <span class="math inline">\(\nabla_i  \nabla_j f(x)\)</span> has the same
+order as the dominant term of <span class="math inline">\(\nabla_i  \nabla_i f(x)
+=  f&#39;&#39;_{ii}(x)\)</span>. The multipliers on <span class="math inline">\(h^2\)</span> and <span class="math inline">\(1/h^2\)</span> in the expression for the total
+error change, but the order of the optimal step size is still <span class="math inline">\(h^* \propto
+\sqrt[4]{\epsilon_{\mathrm{m}}}\)</span>.</p>
+<p>The exact expression for the truncation term depends on the sum of
+fourth-order cross-derivatives. The following code calculates which
+fourth derivatives enter the expression for the truncation error using
+the same logic (we skip the tedious derivation):</p>
+<div class="sourceCode" id="cb16"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" tabindex="-1"></a>mults4 <span class="ot">&lt;-</span> <span class="fu">getMults</span>(<span class="dv">4</span>)</span>
+<span id="cb16-2"><a href="#cb16-2" tabindex="-1"></a><span class="fu">print</span>(mults4[mults4 <span class="sc">!=</span> <span class="dv">0</span>])</span>
+<span id="cb16-3"><a href="#cb16-3" tabindex="-1"></a><span class="co">#&gt; jiii ijii iiji jjji iiij jjij jijj ijjj </span></span>
+<span id="cb16-4"><a href="#cb16-4" tabindex="-1"></a><span class="co">#&gt;    4    4    4    4    4    4    4    4</span></span></code></pre></div>
+<p>This implies that the error term is determined solely by <span class="math inline">\(\frac{\partial^4 f}{\partial x_i^3 \partial
+x_j}\)</span> and <span class="math inline">\(\frac{\partial^4
+f}{\partial x_i \partial x_j^3}\)</span> owing to the symmetry of
+cross-derivatives: <span class="math inline">\(f&#39;&#39;&#39;&#39;_{jiii} =
+f&#39;&#39;&#39;&#39;_{ijii} = f&#39;&#39;&#39;&#39;_{iiji} =
+f&#39;&#39;&#39;&#39;_{iiij}\)</span>. The exact value of the
+higher-order coefficient is thus <span class="math display">\[
+O(h^4) = \frac{h^4}{24} (4 f&#39;&#39;&#39;&#39;_{jiii}(x + c_1) +
+4f&#39;&#39;&#39;&#39;_{ijjj}(x+c_2)) \approx \frac{h^4}{6}
+(f&#39;&#39;&#39;&#39;_{jiii}(x) + f&#39;&#39;&#39;&#39;_{ijjj}(x)),
+\]</span> where <span class="math inline">\(c_1, c_2 \in (-h,
+h)\)</span> are some constants. After dividing by <span class="math inline">\(4 h^2\)</span>, we get the truncation error equal
+to <span class="math inline">\(\frac{h^2}{24}
+(f&#39;&#39;&#39;&#39;_{jiii}(x) +
+f&#39;&#39;&#39;&#39;_{ijjj}(x))\)</span> that can be plugged into the
+expression for the total error.</p>
+<p>The rounding error <span class="math inline">\([f([x \pm h_i \pm
+h_j])] - f(x \pm h_i \pm h_j)\)</span> from 4 function evaluations is
+approximately bounded by <span class="math inline">\(4 \times 0.5 |f(x)|
+\epsilon_{\mathrm{m}}\)</span>.</p>
+<p><span class="math display">\[
+\varepsilon(h) = \frac{|f&#39;&#39;&#39;&#39;_{ijjj}(x) +
+f&#39;&#39;&#39;&#39;_{iiij}(x)|}{24} h^2 + \frac{0.5 |f(x)|
+\epsilon_{\mathrm{m}}}{h^2}
+\]</span> <span class="math display">\[
+\varepsilon(h) = 0 \quad \Rightarrow \quad
+\frac{|f&#39;&#39;&#39;&#39;_{ijjj}(x) +
+f&#39;&#39;&#39;&#39;_{iiij}(x)|}{12} h = \frac{|f(x)|
+\epsilon_{\mathrm{m}}}{h^3} \quad \Rightarrow \quad h =
+\sqrt[4]{\frac{12 |f(x)| \epsilon_{\mathrm{m}}}{
+|f&#39;&#39;&#39;&#39;_{ijjj}(x) + f&#39;&#39;&#39;&#39;_{iiij}(x)|}}
+\propto \sqrt[4]{\epsilon_{\mathrm{m}}}
+\]</span></p>
+<p>We recommend that the main diagonal of the Hessian be computed
+separately using <span class="math inline">\(h^{**}_{\mathrm{CD}_2}\)</span> (or, even better,
+<span class="math inline">\(h^{**}_{\mathrm{CD}_4}\)</span>) estimated
+for each coordinate, and each off-diagonal element <span class="math inline">\(H_{ij}\)</span> using data-driven procedures
+described in the section below (e.g. ‘AutoDX’).</p>
+<p></p>
+</div>
+<div id="exploiting-the-hessian-symmetry" class="section level2" number="4.4">
+<h2><span class="header-section-number">4.4</span> Exploiting the
+Hessian symmetry</h2>
+<p>In theory, by the symmetry of second derivatives, if all partial
+derivatives are differentiable, then, the crossed partials are equal
+(see the proof of Theorem 3.3.8, ‘Equality of crossed partials’, in
+<span class="citation">Hubbard and Hubbard (2015)</span>). This is known
+as the Schwarz’s theorem, and the usual requirement of continuity may be
+weakened (because it implies differentiability).</p>
+<p>In practice, however, the symmetry of the numerical Hessian depends
+on how it was computed. If the formula~<span class="math inline">\(\eqref{eq:nhess}\)</span> is used, then, symmetry
+is guaranteed because the terms of the finite sum are identical: <span class="math inline">\([H_{ij}] = [H_{ji}]\)</span>. This can be
+exploited to reduce computation time: if <span class="math inline">\(\dim x = k\)</span>, calculate only the main upper
+triangular matrix and reflect it, carrying out only <span class="math inline">\(k(k+1)/2\)</span> operations instead of <span class="math inline">\(k^2\)</span>. This is the default behaviour of the
+<code>Hessian()</code> function from this package. If instead, the
+implementation carries out repeated Jacobian calculation for the
+numerical gradient, then, there is no guarantee that <span class="math inline">\(\nabla_j [\nabla_i f(x)]\)</span> be equal to
+<span class="math inline">\(\nabla_i [\nabla_j f(x)]\)</span>. This is,
+e.,g., the case with the <code>optimHess()</code> function from
+<code>base</code>: it calls the gradient in a loop over coordinates. To
+ensure the symmetry in this case, the numerical Hessian should be
+averaged with its transpose:</p>
+<p></p>
+<p>This approach is standard in applications where the matrix of
+interest has to be positive semi-definite,
+e.,g. autocorrelation-consistent estimation of variances due to <span class="citation">Newey and West (1987)</span>.</p>
+<p></p>
+<p>If the Hessian is computed via repeated differences of the numerical
+gradient, the assumption <span class="math inline">\(|[H_{ij}] -
+[H_{ji}]| \approx 0\)</span> may be used to reduce the number of
+elements to compute from <span class="math inline">\(p^2\)</span> to
+<span class="math inline">\(p(p+1)/2\)</span> because only the upper
+triangular matrix of the partial derivatives needs to be computed: <span class="math display">\[
+H_{ij} \approx \bigl[ J_j([\nabla_i f(x)]) \bigr]
+\]</span></p>
+<p></p>
+<p>From the computational point of view, approximating the Hessian by
+applying first differences to some coordinates of the numerical gradient
+is suboptimal in terms of numerical accuracy: pairs of values <span class="math inline">\(\{ f(x + h_i + h_j), f(x - h_i + h_j)\}\)</span>
+and <span class="math inline">\(\{ f(x + h_i - h_j), f(x - h_i -
+h_j)\}\)</span> are collapsed into single values <span class="math inline">\([\nabla_i f(x + h_j)]\)</span> and <span class="math inline">\([\nabla_i f(x - h_j)]\)</span>. If the Hessian is
+evaluated in a time-saving loop for the upper triangular matrix (as it
+is, e.g, in <code>numDeriv:::genD.default()</code> by <span class="citation">Gilbert and Varadhan (2019)</span>), then, the rounding
+error from <span class="math inline">\([\nabla_i f(x + h_j)]\)</span> is
+copied over to <span class="math inline">\(H_{ji}\)</span>. Not
+collapsing the evaluated values <span class="math inline">\(f(x + h_i +
+h_j)\)</span> and <span class="math inline">\(f(x - h_i + h_j)\)</span>
+into the numerical gradient and storing them separately eliminates the
+problem <span class="math inline">\([H_{ij}] = \bigl[ J_j([\nabla_i
+f(x)]) \bigr] \ne \bigl[ J_i([\nabla_j f(x)]) \bigr] = [H_{ji}]\)</span>
+because the numerators in the non-simplified expressions of the first
+differences of the first differences are the same.</p>
+<p>The current version of the package contains no implementation of the
+implicit symmetrisation by direct calculation without omission. However,
+facilities to choose between the quicker (no symmetrisation) and the
+more accurate (average of the full matrix and its transpose) exist.</p>
+</div>
+</div>
+<div id="common-issues-with-numerical-derivatives" class="section level1" number="5">
+<h1><span class="header-section-number">5</span> Common issues with
+numerical derivatives</h1>
+<div id="stencil-choice" class="section level2" number="5.1">
+<h2><span class="header-section-number">5.1</span> Stencil choice</h2>
+<p>Early literature (<span class="citation">Jordan (1928)</span>, <span class="citation">Aitken (1938)</span>), being focused on interpolation
+techniques, distinguished two cases: equidistant stencils symmetric
+around the zero (<span class="math inline">\(\pm1/2\)</span>, <span class="math inline">\(\pm3/2\)</span>, <span class="math inline">\(\pm5/2\)</span>, ) and equidistant stencils
+containing the zero (0, <span class="math inline">\(\pm1\)</span>, <span class="math inline">\(\pm2\)</span>, ). The former was more economical
+because, as we previously showed, two-term central differences are more
+accurate than one-sided ones, and minimising the number of terms reduced
+the time spent by <em>computers</em> (humans). Nowadays, it is possible
+to obtain interpolation coefficients for arbitrary stencils.</p>
+<p>In terms of step size, the stencil (<span class="math inline">\(\pm1/2\)</span>, <span class="math inline">\(\pm3/2\)</span>) implies tripling the distance
+from zero for the outermost points, whereas the step size on the stencil
+(<span class="math inline">\(\pm1\)</span>, <span class="math inline">\(\pm2\)</span>) is only doubled. This distinction
+begs the question: since both approaches are 4 order accurate, which
+stencil yields a smaller truncation error?</p>
+<p></p>
+<p>Comparing the stencils <span class="math inline">\((-2, 1, 1,
+2)\)</span> and <span class="math inline">\((-3, -1, 1, 3)\)</span> is
+not fair because the Taylor remainder is directly proportional to the
+larger step size. Since the inner step size of 1 eliminates the
+first-order terms and leaves the second-order truncation error <span class="math inline">\(O(h^2)\)</span>, the outer step size eliminates
+the second-order truncation error and leaves the fourth-order remainder
+<span class="math inline">\(O(h^4)\)</span>, which is larger for larger
+<span class="math inline">\(h\)</span>. It is tempting to impose a
+normalisation on the step size for comparing stencils of the form <span class="math inline">\((-1-s, -1+s, 1-s, 1+s)\)</span> because in this
+case, the average step size is one. Setting <span class="math inline">\(s=1/2\)</span> yields <span class="math inline">\((\pm1/2\)</span>, <span class="math inline">\(\pm3/2)\)</span> with step tripling, and <span class="math inline">\(s=1/3\)</span> yields <span class="math inline">\((\pm2/3\)</span>, <span class="math inline">\(\pm4/3)\)</span> with step doubling. However, this
+approach is also problematic because larger values of <span class="math inline">\(s\)</span> result in near-zero step sizes and,
+therefore, near-zero higher-order Taylor remainders.</p>
+<p>Proper optimal stencil analysis requires considering the total error
+including the machine-rounding term that increases for small step
+sizes.</p>
+<p></p>
+<p></p>
+</div>
+<div id="handling-very-small-and-very-large-arguments" class="section level2" number="5.2">
+<h2><span class="header-section-number">5.2</span> Handling very small
+and very large arguments</h2>
+<p></p>
+<p>Usually, the step size is proportional to the value of the argument,
+i.e. <span class="math inline">\(h \propto x
+\sqrt[c]{\varepsilon_{\text{mach}}}\)</span>, where <span class="math inline">\(c\)</span> depends on the derivative and accuracy
+order (see above). However, for <span class="math inline">\(x\approx
+0\)</span>, this may result in <span class="math inline">\([[x]+[h]] =
+[x]\)</span>. To avoid this, the default behaviour in many software
+implementations, including <code>numDeriv</code>, is to use fixed <span class="math inline">\(h\)</span> for <span class="math inline">\(|x|
+&lt; \delta\)</span>. E.g. <code>numDeriv</code> uses
+<code>h = eps = 1e-4</code> in place of <code>h = d*x</code> if
+<code>x &lt; zero.tol</code>; the default method arguments are
+<code>eps = d = 1e-4</code>,
+<code>zero.tol = sqrt(.Machine$double.eps/7e-7) = 1.781e-5</code>.</p>
+<p>For iterative step-size search procedures, <span class="citation">Stepleman and Winarsky (1979)</span> suggest a
+reasonable workaround to prevent this behaviour: use <span class="math inline">\(h =
+0.04\sqrt[c]{\varepsilon_{\text{mach}}}\)</span> as the starting value
+in the step-search procedure. In practice, one may take any reasonable
+value that is suitable for the application and supply some <em>a
+priori</em> information about the function and the meaningful
+distinction between zero and non-zero values. In certain applications,
+only positive parameter values are allowed, which makes the zero the
+<em>boundary of the parameter space</em> – in such cases, particular
+solutions such as ‘take the <em>relative</em> step size <span class="math inline">\(10^{-4}\)</span>’ are more reliable than ‘take the
+absolute step size <span class="math inline">\(10^{-5}\)</span>’.</p>
+<p><strong>Example.</strong> In GARCH models, the constant <span class="math inline">\(\omega\)</span> in the conditional-variance
+equation <span class="math inline">\(\sigma^2_t = \omega + \alpha
+\varepsilon^2_{t-1} + \beta \sigma^2_{t-1}\)</span> is usually very
+small (often in the range <span class="math inline">\([10^{-7},
+10^{-3}]\)</span>). If <span class="math inline">\(\omega =
+10^{-6}\)</span>, then, using the absolute step size <span class="math inline">\(h = 10^{-5}\)</span> (reasonable in most
+applications) – would result in wildly inaccurate numerical derivatives
+or even invalid variance values. By definition, <span class="math inline">\(\sigma^2_t &gt; 0\)</span>, but negative values of
+<span class="math inline">\(\omega\)</span> may create negative values
+in the generated series of <span class="math inline">\(\sigma^2_t\)</span>, which is meaningless in
+statistics. In the best case, the estimated numerical differences will
+be equal to <code>NA</code>. In the worst case, the function computing
+the log-likelihood of such a model will throw an error.</p>
+<p>It is not uncommon to use <span class="math inline">\((0, \ldots,
+0)\)</span> as the starting value in numerical optimisation; in this
+case, using the knowledge about the expected reaction of <span class="math inline">\(f(x)\)</span> to changes in each coordinate of
+<span class="math inline">\(x\)</span> is necessary to avoid
+disproportionately large truncation or rounding errors. Therefore, if it
+is possible, the researcher should either take into account the
+curvature of their functions with respect to the arguments that are too
+small or use heuristic search procedures to determine the optimal step
+size.</p>
+</div>
+<div id="derivatives-of-noisy-functions" class="section level2" number="5.3">
+<h2><span class="header-section-number">5.3</span> Derivatives of noisy
+functions</h2>
+<p></p>
+<p>The very definition of a derivative involves differentiability, which
+sounds tautological, but specifically, this assumption is often violated
+in applied research. In fact, the computer representations <span class="math inline">\([x+h]\)</span> and <span class="math inline">\(\hat f([x+h])\)</span> are discontinuous due to
+the finite machine precision (the number of bits in the mantissa). The
+machine epsilon is such a number that <span class="math inline">\([1 +
+\delta] = 1\)</span> for <span class="math inline">\(|\delta| \le
+\epsilon_{\mathrm{m}}/2\)</span>; therefore, if <span class="math inline">\(x = [x]\)</span>, then, <span class="math inline">\(f([x \pm \delta x]) = f(x)\)</span> for <span class="math inline">\(|\delta| \le \epsilon_{\mathrm{m}}/2\)</span>.
+Hence, the core problem in numerical differentiation is working with
+discontinuous functions where <span class="math inline">\(\lim_{h\to 0}
+\frac{\hat f([x+h]) - \hat f([x])}{h} = 0\)</span>, but the derivative
+of the noiseless function <span class="math inline">\(f\)</span> – as if
+the machine had infinite precision – has to be computed with the maximum
+achievable precision.</p>
+<p>So far, we have considered the ‘best’ case assuming that <span class="math inline">\(\hat f([x+h]) - f(x) \le
+\epsilon_{\mathrm{m}}/2\)</span>. However is quite common to have
+objective functions that depend on the values of inaccurate internal
+numerical routines. Usually, such routines involve optimisation, or
+integration, or root search, or computing derivatives. Depending on the
+convergence tolerance (and the ensuing routine error magnitude) of the
+inner routines, small changes in the input parameter of the outermost
+objective function might lead to abrupt changes in the return values of
+inner functions, which implies discontinuity and, therefore,
+non-differentiability.</p>
+<p>More often than not, the total error of internal routines is outside
+the user’s control. Even such innocent actions as swapping two
+mathematical operations may lead to numerical errors. Example: if the
+internal loop of empirical-likelihood maximisation involves replacing
+logarithms with their 4<sup>th</sup>-order Taylor expansion for small
+inputs, then, the order of multiplication/division in computing the
+Taylor approximation affects the result! Consider computing <span class="math inline">\(\frac14 (x-t)^4 / t^4\)</span> and getting two
+different results:</p>
+<div class="sourceCode" id="cb17"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" tabindex="-1"></a>x   <span class="ot">&lt;-</span> <span class="sc">-</span><span class="fl">0.2456605107847454</span>  <span class="co"># 16 sig. digs</span></span>
+<span id="cb17-2"><a href="#cb17-2" tabindex="-1"></a>t   <span class="ot">&lt;-</span> <span class="dv">1</span><span class="sc">/</span><span class="dv">59</span></span>
+<span id="cb17-3"><a href="#cb17-3" tabindex="-1"></a><span class="fu">print</span>(res1 <span class="ot">&lt;-</span> (x<span class="sc">-</span>t)<span class="sc">^</span><span class="dv">4</span> <span class="sc">*</span> (t<span class="sc">^-</span><span class="dv">4</span> <span class="sc">/</span> <span class="dv">4</span>), <span class="dv">17</span>)</span>
+<span id="cb17-4"><a href="#cb17-4" tabindex="-1"></a><span class="co">#&gt; [1] 14407.574265883137</span></span>
+<span id="cb17-5"><a href="#cb17-5" tabindex="-1"></a><span class="fu">print</span>(res2 <span class="ot">&lt;-</span> (x<span class="sc">-</span>t)<span class="sc">^</span><span class="dv">4</span> <span class="sc">/</span> (t<span class="sc">^</span><span class="dv">4</span> <span class="sc">*</span> <span class="dv">4</span>), <span class="dv">17</span>)</span>
+<span id="cb17-6"><a href="#cb17-6" tabindex="-1"></a><span class="co">#&gt; [1] 14407.574265883139</span></span>
+<span id="cb17-7"><a href="#cb17-7" tabindex="-1"></a><span class="fu">print</span>(res1 <span class="sc">-</span> res2)</span>
+<span id="cb17-8"><a href="#cb17-8" tabindex="-1"></a><span class="co">#&gt; [1] -1.818989e-12</span></span></code></pre></div>
+<p>Two mathematically equivalent expressions, <span class="math inline">\((x-t)^4 \cdot (t^{-4} / 4)\)</span> and <span class="math inline">\((x-t)^4 / (4t^4)\)</span>, differ in absolute
+terms by more than <span class="math inline">\(1000
+\epsilon_{\text{m}}\)</span>! Evaluating <span class="math inline">\((t^{-4} / 4) -1/ (4t^4)\)</span> yields zero
+exactly; however, the extra multiplication by <span class="math inline">\((x-t)^4\)</span> creates lost accuracy bits. The
+magnitude of the objective function in this specific application is
+approximately 1, which is why the termination of the optimisation
+algorithm occurs in a different number of steps with the two different
+implementations of the Taylor series.</p>
+<p>The consequence of this loss is the increase in the rounding-error
+variance and the need to take into account the absolute error magnitude
+of <span class="math inline">\(\hat f([x+h]) - f(x+h)\)</span> into
+account; the relative error is still bounded by <span class="math inline">\(\epsilon_{\text{m}}/2\)</span>, but when some
+intermediate terms of the computation shoot off due to division by small
+quantities (in this example, <span class="math inline">\(4t^4 \approx
+3.3\cdot 10^{-7}\)</span>), it changes the magnitude of the numerator.
+Usually, it is not feasible to extract the information about the most
+ill-conditioned operation in the chain of thousands or millions of
+operations taking place under the hood of present-day objective
+functions, but a rough measure of the ‘combined noisiness due to
+inaccurate internal routines’ could be calculated based on certain input
+characteristics of the input.</p>
+<p></p>
+<p>If computing <span class="math inline">\(f\)</span> involves
+optimisation with a relative-tolerance-based stopping criterion
+<code>ret.tol = 1e-8</code>, then, the difference might be as bad as
+<span class="math inline">\(\epsilon_{\mathrm{m}} \cdot 10^8\)</span>!
+The same argument applies to numerical integration, root solving,
+stochastic algorithms and such: if <span class="math inline">\(\hat f(x
++ h)\)</span> is prone to deviating from <span class="math inline">\(f(x+h)\)</span> due to some extra losses occurring
+under the hood of <span class="math inline">\(f\)</span>, the bound on
+the rounding error must reflect this fact. It would be dangerous to
+assume <span class="math inline">\(|\varepsilon_{f_2} -
+\varepsilon_{f_1}| \le \epsilon_{\mathrm{m}}\)</span> if changes of
+inputs cause the internal routines of <span class="math inline">\(f\)</span> to go differently due to the butterfly
+effect. If <span class="math inline">\(f\)</span> relies on stochastic
+optimisation with relative tolerance <span class="math inline">\(2.22
+\cdot 10^{-7}\)</span> (not uncommon in popular algorithms) as the
+stopping criterion, <span class="math inline">\(|\varepsilon_{f,2} -
+\varepsilon_{f,1}| \le 10^9 \cdot \epsilon_{\mathrm{m}}\)</span>, which
+is why the rule-of-thumb <span class="math inline">\(h^*\)</span> needs
+to be blown up by a factor of 1000 (becoming 0.006) to obtain any
+meaningful information about the slope of the function! Ironically, this
+is the reason why repeated differences for higher-order derivatives can
+be so unstable: central differences of well-behaved functions lose 5
+accurate digits, and one-sided differences, 8 (out of 16!) digits.</p>
+<p></p>
+<p></p>
+<p>The problem with function optimisation is, the relative tolerance as
+a stopping criterion is </p>
+<p></p>
+<p></p>
+<p></p>
+</div>
+<div id="accuracy-loss-due-to-repeated-differencing" class="section level2" number="5.4">
+<h2><span class="header-section-number">5.4</span> Accuracy loss due to
+repeated differencing</h2>
+<p></p>
+<p></p>
+<p>So far, we have considered only the ‘ideal’ case where the diagonal
+elements of a Hessian are computed via the proper formula for second
+derivatives, and the off-diagonal elements are computed in one single
+step. However, this approach, being the simplest to analyse, is
+cumbersome to implement. It is much more common to compute the Jacobian
+of the gradient (e.g. the popular implementation
+<code>stats::optimHess</code> follows this approach). This might incur
+extra accuracy loss because the numerator in this approach contains the
+difference of ‘lossy’ numerical derivatives, not the original function
+values.</p>
+<p>The effect of this error compounding can be illustrated by the
+following example. Recall that two-sided differences are accurate only
+up to (approximately) 2/3 of their significant digits. Indeed, <span class="math inline">\(|\hat f([x+h]) - f(x-h)| \le \epsilon_{\mathrm{m}}
+/ 2\)</span>, but <span class="math inline">\(|\hat
+f&#39;_{\mathrm{FD}}([x+h]) - f&#39;(x+h)| = O(h^2) =
+O(\epsilon_{\mathrm{m}}^{2/3})\)</span> for the optimal <span class="math inline">\(h \propto
+\sqrt[3]{\epsilon_{\mathrm{m}}}\)</span>. The noisy <span class="math inline">\(\hat f&#39;_{\mathrm{CD}_2} (x+h) = f&#39;(x+h) +
+O(\epsilon_{\mathrm{m}}^{2/3})\)</span> enters the numerator of the
+second step and is multiplied by the <span class="math inline">\(1/h\)</span> factor again. Therefore, rounding
+errors accumulate in the two-step differencing procedure to a greater
+extent than in the one-step one, and dedicated analysis is required to
+gauge the order of magnitude of the accuracy loss.</p>
+<p></p>
+</div>
+</div>
+<div id="complex-derivatives" class="section level1" number="6">
+<h1><span class="header-section-number">6</span> Complex
+derivatives</h1>
+<p>If the function <span class="math inline">\(f(x)\)</span> supports
+complex arguments and outputs, as is the case with many simple
+arithmetic and algebraic functions, then, evaluating complex arguments
+allows one to obtain highly accurate numerical derivatives with fewer
+function evaluations.</p>
+<p>The Taylor expansion for a function of a complex variable is <span class="math display">\[
+f(x + \mathrm{i}h) = f(x) + \mathrm{i}h f&#39;(x) - \frac{h^2}{2}
+f&#39;&#39;(x) - \mathrm{i} \frac{h^3}{3!} f&#39;&#39;&#39;(x) +
+\frac{h^4}{4!} f&#39;&#39;&#39;&#39;(x) + O(h^5).
+\]</span> The imaginary part of this expression divided by <span class="math inline">\(h\)</span> is <span class="math display">\[
+\frac{\Im f(x + \mathrm{i}h)}{h} = f&#39;(x) - \frac{h^2}{3!}
+f&#39;&#39;&#39;(x) + O(h^4).
+\]</span> One evaluation and one division yield the largest error term
+of the order <span class="math inline">\(O(h^2)\)</span>, and the
+overall accuracy does not suffer from catastrophic cancellation. The
+total approximation error of this method stays small even for small step
+sizes <span class="math inline">\(h\)</span>. See <span class="citation">Squire and Trapp (1998)</span> for numerical
+examples.</p>
+<p>The choice of the optimal step size is not obvious in the general
+case because the user should choose not only <span class="math inline">\(h\)</span> but also the direction (the power of
+<span class="math inline">\(\mathrm{i}\)</span>). <span class="citation">Martins, Sturdza, and Alonso (2003)</span> give the
+following recommendation: require that <span class="math inline">\(h^2
+|f&#39;&#39;&#39;(x)/3!| &lt; \varepsilon |f&#39;(x)|\)</span>, where
+<span class="math inline">\(\varepsilon\)</span> is the relative
+algorithm precision, for which <span class="math inline">\(h\)</span>
+has to be small enough. If <span class="math inline">\(f(x) \approx
+0\)</span> or <span class="math inline">\(f&#39;(x) \approx 0\)</span>,
+this condition might not hold. However, a small complex step <span class="math inline">\(h = 10^{-20}\)</span> is a reasonable
+rule-of-thumb value.</p>
+<p>Higher-order differences require fewer evaluations, too, but are not
+difference-free, which is why <span class="math display">\[
+f&#39;&#39;(x) = \frac{2[f(x) - \Re f(x+\mathrm{i}h)]}{h^2} -
+\frac{h^2}{12} f&#39;&#39;&#39;&#39;(x) + O(h^4)
+\]</span> suffers from machine round-off to a certain degree.</p>
+<p>The method accuracy and convergence can be improved by carefully
+choosing the complex-step <em>angle</em>: <span class="math display">\[
+f&#39;(x) = \frac{\Im\{ f(x+\mathrm{i}^{2/3}h) -
+f(x+\mathrm{i}^{8/3}h)\} }{\sqrt{3} h} - \frac{h^4}{120} f^{(V)}(x) +
+\ldots
+\]</span> <span class="math display">\[
+f&#39;&#39;(x) = \frac{\Im\{ f(x+\mathrm{i}^{1/2}h) +
+f(x+\mathrm{i}^{5/2}h)\} }{h^2} - \frac{h^4}{360} f^{(VI)}(x) + \ldots
+\]</span> Jacobians and Hessians can be evaluated similarly with fewer
+function calls. However, for small step sizes, they suffer from the
+round-off error just like the real-valued finite-difference
+counterparts. The benefit is, the complex method yields a much wider
+range of accurate matrix solutions.</p>
+<p>Richardson extrapolation can be used for attaining higher-order
+accuracy at the cost of more evaluations. Using 4 instead of 2 complex
+argument evaluations yields ludicrous accuracy: <span class="math display">\[
+f&#39;&#39;(x) = \frac{\Im \left\{ 64 [f(x+\frac{\sqrt{\mathrm{i}}
+h}{2}) + f(x-\frac{\sqrt{\mathrm{i}} h}{2})] - f(x+\sqrt{\mathrm{i}} h)
+- f(x-\sqrt{\mathrm{i}} h) \right\}}{15 h^2} + \frac{h^8
+f^{(X)}(x)}{1\,814\,400},
+\]</span> i.e. one millionth of the tenth derivative times the eighth
+power of the tiny step!</p>
+<p>See <span class="citation">Lai and Crassidis (2008)</span> for more
+details.</p>
+<p>Note that this approach is not feasible in many applications where
+the function is not defined for complex inputs. In econometrics,
+densities are non-negative, probabilities are bounded, and the function
+in question is often the objective function of a non-linear model where
+many more numerical procedures are run under the hood (loops, numerical
+root searches, integration routines, data-driven hyper-parameter
+cross-validation etc.), not allowing any complex inputs.</p>
+<p>Currently, the complex method is not supported in the
+<code>pnd</code> package; derivations and an implementation may be done
+in the future to fully restore the functionality of
+<code>numDeriv</code>.</p>
+</div>
+<div id="todo-uncategorised" class="section level1" number="7">
+<h1><span class="header-section-number">7</span> TODO –
+Uncategorised</h1>
+<p></p>
+<p></p>
+<p></p>
+<p>The results are comparable in terms of effective accuracy: e.g. the
+grid <span class="math inline">\(x-2h, x-h, x+h, x+2h\)</span> from
+<code>pnd</code> corresponds to 4 Richardson iterations from
+<code>numDeriv</code>, with minor differences due to the initial step
+size choice.</p>
+<p></p>
+<p>Simulation set-up from Curtis and Reid:</p>
+<div class="sourceCode" id="cb18"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" tabindex="-1"></a>f1 <span class="ot">&lt;-</span> <span class="cf">function</span>(x) <span class="fu">expm1</span>(x)<span class="sc">^</span><span class="dv">2</span> <span class="sc">+</span> (<span class="dv">1</span><span class="sc">/</span><span class="fu">sqrt</span>(<span class="dv">1</span><span class="sc">+</span>x<span class="sc">^</span><span class="dv">2</span>) <span class="sc">-</span> <span class="dv">1</span>)<span class="sc">^</span><span class="dv">2</span></span>
+<span id="cb18-2"><a href="#cb18-2" tabindex="-1"></a>df1 <span class="ot">&lt;-</span> <span class="cf">function</span>(x) <span class="dv">2</span> <span class="sc">*</span> <span class="fu">exp</span>(x) <span class="sc">*</span> <span class="fu">expm1</span>(x) <span class="sc">-</span> <span class="dv">2</span><span class="sc">*</span>x <span class="sc">*</span> (<span class="dv">1</span><span class="sc">/</span><span class="fu">sqrt</span>(<span class="dv">1</span><span class="sc">+</span>x<span class="sc">^</span><span class="dv">2</span>) <span class="sc">-</span> <span class="dv">1</span>) <span class="sc">/</span> (<span class="dv">1</span> <span class="sc">+</span> x<span class="sc">^</span><span class="dv">2</span>) <span class="sc">/</span> <span class="fu">sqrt</span>(<span class="dv">1</span> <span class="sc">+</span> x<span class="sc">^</span><span class="dv">2</span>)</span>
+<span id="cb18-3"><a href="#cb18-3" tabindex="-1"></a>ddf1 <span class="ot">&lt;-</span> <span class="cf">function</span>(x) (<span class="dv">6</span> <span class="sc">*</span> (<span class="dv">1</span><span class="sc">/</span><span class="fu">sqrt</span>(<span class="dv">1</span> <span class="sc">+</span> x<span class="sc">^</span><span class="dv">2</span>) <span class="sc">-</span> <span class="dv">1</span>) <span class="sc">*</span> x<span class="sc">^</span><span class="dv">2</span>)<span class="sc">/</span>(<span class="dv">1</span> <span class="sc">+</span> x<span class="sc">^</span><span class="dv">2</span>)<span class="sc">^</span>(<span class="dv">5</span><span class="sc">/</span><span class="dv">2</span>) <span class="sc">+</span> (<span class="dv">2</span> <span class="sc">*</span> x<span class="sc">^</span><span class="dv">2</span>)<span class="sc">/</span>(<span class="dv">1</span> <span class="sc">+</span> x<span class="sc">^</span><span class="dv">2</span>)<span class="sc">^</span><span class="dv">3</span> <span class="sc">-</span> (<span class="dv">2</span> <span class="sc">*</span> (<span class="dv">1</span><span class="sc">/</span><span class="fu">sqrt</span>(<span class="dv">1</span> <span class="sc">+</span> x<span class="sc">^</span><span class="dv">2</span>) <span class="sc">-</span> <span class="dv">1</span>))<span class="sc">/</span>(<span class="dv">1</span> <span class="sc">+</span> x<span class="sc">^</span><span class="dv">2</span>)<span class="sc">^</span>(<span class="dv">3</span><span class="sc">/</span><span class="dv">2</span>) <span class="sc">+</span> <span class="dv">2</span> <span class="sc">*</span> <span class="fu">exp</span>(<span class="dv">2</span><span class="sc">*</span>x) <span class="sc">+</span> <span class="dv">2</span> <span class="sc">*</span> <span class="fu">exp</span>(x) <span class="sc">*</span> <span class="fu">expm1</span>(x)</span>
+<span id="cb18-4"><a href="#cb18-4" tabindex="-1"></a>dddf1 <span class="ot">&lt;-</span> <span class="cf">function</span>(x) (<span class="dv">18</span> <span class="sc">*</span> (<span class="dv">1</span><span class="sc">/</span><span class="fu">sqrt</span>(<span class="dv">1</span> <span class="sc">+</span> x<span class="sc">^</span><span class="dv">2</span>) <span class="sc">-</span> <span class="dv">1</span>) <span class="sc">*</span> x)<span class="sc">/</span>(<span class="dv">1</span> <span class="sc">+</span> x<span class="sc">^</span><span class="dv">2</span>)<span class="sc">^</span>(<span class="dv">5</span><span class="sc">/</span><span class="dv">2</span>) <span class="sc">+</span> (<span class="dv">6</span> <span class="sc">*</span> x)<span class="sc">/</span>(<span class="dv">1</span> <span class="sc">+</span> x<span class="sc">^</span><span class="dv">2</span>)<span class="sc">^</span><span class="dv">3</span> <span class="sc">-</span> (<span class="dv">30</span> <span class="sc">*</span> (<span class="dv">1</span><span class="sc">/</span><span class="fu">sqrt</span>(<span class="dv">1</span> <span class="sc">+</span> x<span class="sc">^</span><span class="dv">2</span>) <span class="sc">-</span> <span class="dv">1</span>) <span class="sc">*</span> x<span class="sc">^</span><span class="dv">3</span>)<span class="sc">/</span>(<span class="dv">1</span> <span class="sc">+</span> x<span class="sc">^</span><span class="dv">2</span>)<span class="sc">^</span>(<span class="dv">7</span><span class="sc">/</span><span class="dv">2</span>) <span class="sc">-</span> (<span class="dv">18</span> <span class="sc">*</span> x<span class="sc">^</span><span class="dv">3</span>)<span class="sc">/</span>(<span class="dv">1</span> <span class="sc">+</span> x<span class="sc">^</span><span class="dv">2</span>)<span class="sc">^</span><span class="dv">4</span> <span class="sc">+</span> <span class="dv">6</span> <span class="sc">*</span> <span class="fu">exp</span>(<span class="dv">2</span><span class="sc">*</span>x) <span class="sc">+</span> <span class="dv">2</span> <span class="sc">*</span> <span class="fu">exp</span>(x) <span class="sc">*</span> <span class="fu">expm1</span>(<span class="dv">1</span>)</span>
+<span id="cb18-5"><a href="#cb18-5" tabindex="-1"></a></span>
+<span id="cb18-6"><a href="#cb18-6" tabindex="-1"></a>squish <span class="ot">&lt;-</span> <span class="cf">function</span>(x, <span class="at">pow =</span> <span class="dv">1</span><span class="sc">/</span><span class="dv">2</span>, <span class="at">shift =</span> <span class="dv">1</span>) ((<span class="fu">abs</span>(x) <span class="sc">+</span> shift)<span class="sc">^</span>pow <span class="sc">-</span> shift<span class="sc">^</span>pow) <span class="sc">*</span> <span class="fu">sign</span>(x)</span>
+<span id="cb18-7"><a href="#cb18-7" tabindex="-1"></a>unsquish <span class="ot">&lt;-</span> <span class="cf">function</span>(y, <span class="at">pow =</span> <span class="dv">1</span><span class="sc">/</span><span class="dv">2</span>, <span class="at">shift =</span> <span class="dv">1</span>) ((<span class="fu">abs</span>(y) <span class="sc">+</span> shift<span class="sc">^</span>pow)<span class="sc">^</span>(<span class="dv">1</span><span class="sc">/</span>pow) <span class="sc">-</span> shift) <span class="sc">*</span> <span class="fu">sign</span>(y)</span>
+<span id="cb18-8"><a href="#cb18-8" tabindex="-1"></a></span>
+<span id="cb18-9"><a href="#cb18-9" tabindex="-1"></a>xgrid <span class="ot">&lt;-</span> <span class="fu">seq</span>(<span class="sc">-</span><span class="fl">0.2</span>, <span class="fl">1.5</span>, <span class="fl">0.01</span>)</span>
+<span id="cb18-10"><a href="#cb18-10" tabindex="-1"></a><span class="fu">par</span>(<span class="at">mar =</span> <span class="fu">c</span>(<span class="dv">2</span>, <span class="dv">2</span>, <span class="dv">0</span>, <span class="dv">0</span>) <span class="sc">+</span> .<span class="dv">1</span>)</span>
+<span id="cb18-11"><a href="#cb18-11" tabindex="-1"></a><span class="fu">plot</span>(xgrid, <span class="fu">squish</span>(<span class="fu">f1</span>(xgrid)), <span class="at">type =</span> <span class="st">&quot;l&quot;</span>, <span class="at">ylim =</span> <span class="fu">squish</span>(<span class="fu">c</span>(<span class="sc">-</span><span class="dv">1</span>, <span class="dv">20</span>)), <span class="at">bty =</span> <span class="st">&quot;n&quot;</span>, <span class="at">lwd =</span> <span class="dv">2</span>, <span class="at">xlab =</span> <span class="st">&quot;&quot;</span>, <span class="at">ylab =</span> <span class="st">&quot;&quot;</span>, <span class="at">yaxt =</span> <span class="st">&quot;n&quot;</span>)</span>
+<span id="cb18-12"><a href="#cb18-12" tabindex="-1"></a><span class="fu">lines</span>(xgrid, <span class="fu">squish</span>(<span class="fu">df1</span>(xgrid)), <span class="at">col =</span> <span class="dv">2</span>)</span>
+<span id="cb18-13"><a href="#cb18-13" tabindex="-1"></a><span class="fu">lines</span>(xgrid, <span class="fu">squish</span>(<span class="fu">ddf1</span>(xgrid)), <span class="at">col =</span> <span class="dv">3</span>)</span>
+<span id="cb18-14"><a href="#cb18-14" tabindex="-1"></a><span class="fu">lines</span>(xgrid, <span class="fu">squish</span>(<span class="fu">dddf1</span>(xgrid)), <span class="at">col =</span> <span class="dv">4</span>)</span>
+<span id="cb18-15"><a href="#cb18-15" tabindex="-1"></a><span class="fu">axis</span>(<span class="dv">2</span>, <span class="fu">squish</span>(ats <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="sc">-</span><span class="dv">1</span>, <span class="dv">0</span>, <span class="dv">1</span>, <span class="dv">2</span>, <span class="dv">5</span>, <span class="dv">10</span>, <span class="dv">20</span>)), <span class="at">labels =</span> ats, <span class="at">las =</span> <span class="dv">1</span>)</span></code></pre></div>
+<p><img role="img" src="data:image/png;base64,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" width="10cm" /></p>
+<p></p>
+</div>
+<div id="references" class="section level1" number="8">
+<h1><span class="header-section-number">8</span> References</h1>
+<div id="refs" class="references csl-bib-body hanging-indent" entry-spacing="0">
+<div id="ref-aitken1938application" class="csl-entry">
+Aitken, A. C. 1938. <span>“The Application of Quadratic Extrapolation to
+the Evaluation of Derivatives, and to Inverse Interpolation.”</span>
+<em>Proceedings of the Royal Society of Edinburgh</em> 58: 161–75. <a href="https://doi.org/10.1017/S0370164600011093">https://doi.org/10.1017/S0370164600011093</a>.
+</div>
+<div id="ref-bjorck1970solution" class="csl-entry">
+Björck, Åke, and Victor Pereyra. 1970. <span>“Solution of
+<span>V</span>andermonde Systems of Equations.”</span> <em>Mathematics
+of Computation</em> 24 (112): 893–903.
+</div>
+<div id="ref-dumontet1977determination" class="csl-entry">
+Dumontet, J., and J. Vignes. 1977. <span>“Détermination Du Pas Optimal
+Dans Le Calcul Des Dérivées Sur Ordinateur.”</span> <em>RAIRO. Analyse
+Numérique</em> 11 (1): 13–25. <a href="https://doi.org/10.1051/m2an/1977110100131">https://doi.org/10.1051/m2an/1977110100131</a>.
+</div>
+<div id="ref-fornberg1988generation" class="csl-entry">
+Fornberg, Bengt. 1988. <span>“Generation of Finite Difference Formulas
+on Arbitrarily Spaced Grids.”</span> <em>Mathematics of Computation</em>
+51 (184): 699–706. <a href="https://doi.org/10.1090/S0025-5718-1988-0935077-0">https://doi.org/10.1090/S0025-5718-1988-0935077-0</a>.
+</div>
+<div id="ref-optimParallel" class="csl-entry">
+Gerber, Florian, and Reinhard Furrer. 2019. <span>“optimParallel: An
+<span>R</span> Package Providing a Parallel Version of the
+<span>L-BFGS-B</span> Optimization Method.”</span> <em>The R
+Journal</em> 11 (1): 352–58. <a href="https://doi.org/10.32614/RJ-2019-030">https://doi.org/10.32614/RJ-2019-030</a>.
+</div>
+<div id="ref-numDeriv" class="csl-entry">
+Gilbert, Paul, and Ravi Varadhan. 2019. <em>numDeriv: Accurate Numerical
+Derivatives</em>. <a href="https://CRAN.R-project.org/package=numDeriv">https://CRAN.R-project.org/package=numDeriv</a>.
+</div>
+<div id="ref-gill1981practical" class="csl-entry">
+Gill, Philip E., Walter Murray, and Margaret H. Wright. 1981.
+<em>Practical Optimization</em>. Academic Press. <a href="https://doi.org/10.1137/1.9781611975604">https://doi.org/10.1137/1.9781611975604</a>.
+</div>
+<div id="ref-goldberg1991what" class="csl-entry">
+Goldberg, David. 1991. <span>“What Every Computer Scientist Should Know
+about Floating-Point Arithmetic.”</span> <em><span>ACM</span> Computing
+Surveys</em> 23 (1): 5–48. <a href="https://doi.org/10.1145/103162.103163">https://doi.org/10.1145/103162.103163</a>.
+</div>
+<div id="ref-hubbard2015vector" class="csl-entry">
+Hubbard, John Hamal, and Barbara Burke Hubbard. 2015. <em>Vector
+Calculus, Linear Algebra, and Differential Forms: A Unified
+Approach</em>. 5th ed. Matrix Editions.
+</div>
+<div id="ref-jordan1928formule" class="csl-entry">
+Jordan, Charles. 1928. <span>“Sur Une Formule d’interpolation.”</span>
+In <em>Atti Del Congresso Internazionale Dei Matematici</em>, edited by
+Nicola Zanichelli, 157–77.
+</div>
+<div id="ref-kostyrka2025what" class="csl-entry">
+Kostyrka, Andreï V. 2025. <span>“What Are You Doing, Step Size: Fast
+Computation of Accurate Numerical Derivatives with Finite
+Precision.”</span> Working paper.
+</div>
+<div id="ref-lai2008extensions" class="csl-entry">
+Lai, K.-L., and J. L. Crassidis. 2008. <span>“Extensions of the First
+and Second Complex-Step Derivative Approximations.”</span> <em>Journal
+of Computational and Applied Mathematics</em> 219 (1): 276–93. <a href="https://doi.org/10.1016/j.cam.2007.07.026">https://doi.org/10.1016/j.cam.2007.07.026</a>.
+</div>
+<div id="ref-li2005general" class="csl-entry">
+Li, Jianping. 2005. <span>“General Explicit Difference Formulas for
+Numerical Differentiation.”</span> <em>Journal of Computational and
+Applied Mathematics</em> 183 (1): 29–52. <a href="https://doi.org/10.1016/j.cam.2004.12.026">https://doi.org/10.1016/j.cam.2004.12.026</a>.
+</div>
+<div id="ref-martins2003complex" class="csl-entry">
+Martins, Joaquim R. R. A., Peter Sturdza, and Juan J. Alonso. 2003.
+<span>“The Complex-Step Derivative Approximation.”</span>
+<em><span>ACM</span> Transactions on Mathematical Software</em> 29 (3):
+245–62. <a href="https://doi.org/10.1145/838250.838251">https://doi.org/10.1145/838250.838251</a>.
+</div>
+<div id="ref-mathur2012analytical" class="csl-entry">
+Mathur, Ravishankar. 2012. <span>“An Analytical Approach to Computing
+Step Sizes for Finite-Difference Derivatives.”</span> PhD thesis,
+University of Texas at Austin. <a href="http://hdl.handle.net/2152/ETD-UT-2012-05-5275">http://hdl.handle.net/2152/ETD-UT-2012-05-5275</a>.
+</div>
+<div id="ref-mathur2013algorithm" class="csl-entry">
+———. 2013. <span>“Algorithm <span>AAS</span> 13-723: An Analytical
+Approach to Computing Step Sizes for Finite-Difference
+Derivatives.”</span> Emergent Space Technologies, Inc. <a href="https://web.archive.org/web/20240527044243/https://www.emergentspace.com/wp-content/uploads/stepsize.pdf">https://web.archive.org/web/20240527044243/https://www.emergentspace.com/wp-content/uploads/stepsize.pdf</a>.
+</div>
+<div id="ref-newey1987simple" class="csl-entry">
+Newey, Whitney K., and Kenneth D. West. 1987. <span>“A Simple, Positive
+Semi-Definite, Heteroskedasticity and Autocorrelation Consistent
+Covariance Matrix.”</span> <em>Econometrica</em> 55 (3): 703. <a href="https://doi.org/10.2307/1913610">https://doi.org/10.2307/1913610</a>.
+</div>
+<div id="ref-oliver1975selection" class="csl-entry">
+Oliver, John, and Andrew Ruffhead. 1975. <span>“The Selection of
+Interpolation Points in Numerical Differentiation.”</span> <em>BIT
+Numerical Mathematics</em> 15 (3): 283–95. <a href="https://doi.org/10.1007/BF01933661">https://doi.org/10.1007/BF01933661</a>.
+</div>
+<div id="ref-rcore" class="csl-entry">
+R Core Team. 2024. <em>R: A Language and Environment for Statistical
+Computing</em>. Vienna, Austria: <span>R</span> Foundation for
+Statistical Computing. <a href="https://www.R-project.org/">https://www.R-project.org/</a>.
+</div>
+<div id="ref-sauer2017numerical" class="csl-entry">
+Sauer, Timothy. 2017. <em>Numerical Analysis</em>. 3rd ed. Pearson
+Education.
+</div>
+<div id="ref-squire1998using" class="csl-entry">
+Squire, William, and George Trapp. 1998. <span>“Using Complex Variables
+to Estimate Derivatives of Real Functions.”</span> <em><span>SIAM</span>
+Review</em> 40 (1): 110–12. <a href="https://doi.org/10.1137/s003614459631241x">https://doi.org/10.1137/s003614459631241x</a>.
+</div>
+<div id="ref-stepleman1979adaptive" class="csl-entry">
+Stepleman, R. S., and N. D. Winarsky. 1979. <span>“Adaptive Numerical
+Differentiation.”</span> <em>Mathematics of Computation</em> 33 (148):
+1257–64. <a href="https://doi.org/10.1090/s0025-5718-1979-0537969-8">https://doi.org/10.1090/s0025-5718-1979-0537969-8</a>.
+</div>
+</div>
+</div>
+<div class="footnotes footnotes-end-of-document">
+<hr />
+<ol>
+<li id="fn1"><p>The problem with the L-BFGS-B method in R is its
+reliance on finite function values; the BFGS method admits infinite
+function values during the linear improvement search, but its
+limited-memory counterpart with box constraints throws an error upon
+encountering , , or <span class="math inline">\(\pm\)</span>. This
+limits the scope of the <code>optimParallel</code> solution to a narrow
+family of well-behaved functions or functions modified by the user to
+replace non-finite values with an arbitrary large number.<a href="#fnref1" class="footnote-back">↩︎</a></p></li>
+<li id="fn2"><p><code>numDeriv:::grad.default()</code> prints out the
+Richardson extrapolation steps for first derivatives, but not
+cross-derivatives, which rely on <code>numDeriv:::genD.default()</code>
+instead.<a href="#fnref2" class="footnote-back">↩︎</a></p></li>
+<li id="fn3"><p>Other works (e.g. <span class="citation">Goldberg
+(1991)</span>) give a different definition of the machine epsilon – the
+relative error bound. In our notation, any real number is rounded to the
+closest FP number with relative error less that <span class="math inline">\(\epsilon_{\mathrm{m}}/2\)</span>.<a href="#fnref3" class="footnote-back">↩︎</a></p></li>
+<li id="fn4"><p>Some confusion may stem from the fact that the
+derivative order in the error term is 2, <span class="math inline">\(f&#39;&#39;(x)\)</span>; the accuracy order
+relates to the step size power, not the derivative order in the Taylor
+expansion.<a href="#fnref4" class="footnote-back">↩︎</a></p></li>
+<li id="fn5"><p>We write `formal’ to distinguish between the desired
+accuracy and the finite machine precision discussed in the next
+section.<a href="#fnref5" class="footnote-back">↩︎</a></p></li>
+</ol>
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>
