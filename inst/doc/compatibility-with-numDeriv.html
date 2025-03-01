@@ -374,7 +374,7 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 numDeriv</h1>
 <h4 class="author">Andreï V. Kostyrka, University of Luxembourg</h4>
 <h4 class="date">Created: 2024-10-01, last modified: 2024-10-01,
-compiled: 2025-02-25</h4>
+compiled: 2025-03-01</h4>
 <div class="abstract">
 <p class="abstract">Abstract</p>
 We describe the syntax of the widely popular <code>numDeriv</code>
@@ -419,7 +419,7 @@ diagnostics</a></li>
 
 <p>Load the packages first:</p>
 <div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="fu">library</span>(pnd)</span>
-<span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a><span class="co">#&gt; Parallel numerical derivatives v. 0.0.6 (2025-01-23).</span></span>
+<span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a><span class="co">#&gt; Parallel numerical derivatives v. 0.0.7 (2025-03-01).</span></span>
 <span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a><span class="co">#&gt; 4 physical cores for parallelism through mclapply forking are available on Linux.</span></span>
 <span id="cb1-4"><a href="#cb1-4" tabindex="-1"></a><span class="fu">library</span>(numDeriv)</span></code></pre></div>
 <p>Numerical derivatives are ubiquitous in applies statistics and
@@ -763,10 +763,10 @@ possible. Many calls of the same function with shorter arguments are
 slower than one call with a long argument:</p>
 <div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" tabindex="-1"></a><span class="fu">system.time</span>(<span class="fu">replicate</span>(<span class="fl">1e5</span>, <span class="fu">sin</span>(<span class="fu">rnorm</span>(<span class="dv">10</span>))))</span>
 <span id="cb10-2"><a href="#cb10-2" tabindex="-1"></a><span class="co">#&gt;    user  system elapsed </span></span>
-<span id="cb10-3"><a href="#cb10-3" tabindex="-1"></a><span class="co">#&gt;   0.275   0.004   0.279</span></span>
+<span id="cb10-3"><a href="#cb10-3" tabindex="-1"></a><span class="co">#&gt;   0.426   0.021   0.447</span></span>
 <span id="cb10-4"><a href="#cb10-4" tabindex="-1"></a><span class="fu">system.time</span>(<span class="fu">sin</span>(<span class="fu">rnorm</span>(<span class="fl">1e6</span>)))</span>
 <span id="cb10-5"><a href="#cb10-5" tabindex="-1"></a><span class="co">#&gt;    user  system elapsed </span></span>
-<span id="cb10-6"><a href="#cb10-6" tabindex="-1"></a><span class="co">#&gt;   0.074   0.000   0.074</span></span></code></pre></div>
+<span id="cb10-6"><a href="#cb10-6" tabindex="-1"></a><span class="co">#&gt;   0.105   0.000   0.106</span></span></code></pre></div>
 <p>The same phenomenon is observed in the real world with storage media:
 copying 1000 files of size 1 MB each onto a flash drive is slower than
 copying one 1-GB file obtained by concatenating said 1000 files.</p>

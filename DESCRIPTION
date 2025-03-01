@@ -2,13 +2,13 @@ Package: pnd
 Type: Package
 Title: Parallel Numerical Derivatives, Gradients, Jacobians, and
         Hessians of Arbitrary Accuracy Order
-Version: 0.0.6
+Version: 0.0.7
 Authors@R: person(given = c("Andreï", "Victorovitch"), family = "Kostyrka",
         role = c("aut", "cre"), email="andrei.kostyrka@gmail.com")
 Maintainer: Andreï Victorovitch Kostyrka <andrei.kostyrka@gmail.com>
-Description: Calculation of numerical derivatives through
-    finite-difference approximations with parallel capabilities and optimal
-    step-size selection to improve accuracy. These functions facilitate
+Description: Numerical derivatives through finite-difference approximations
+    can be calculated using the 'pnd' package with parallel capabilities and
+    optimal step-size selection to improve accuracy. These functions facilitate
     efficient computation of derivatives, gradients, Jacobians, and Hessians,
     allowing for more evaluations to reduce the mathematical and machine errors.
     Designed for compatibility with the 'numDeriv' package,
@@ -28,7 +28,7 @@ RoxygenNote: 7.3.2
 VignetteBuilder: knitr
 Config/testthat/edition: 3
 NeedsCompilation: no
-Packaged: 2025-02-25 08:57:16 UTC; fifis
+Packaged: 2025-03-01 09:52:21 UTC; fifis
 Author: Andreï Victorovitch Kostyrka [aut, cre]
 Repository: CRAN
-Date/Publication: 2025-02-25 18:00:02 UTC
+Date/Publication: 2025-03-01 23:10:02 UTC
