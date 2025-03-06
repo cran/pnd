@@ -69,7 +69,7 @@ hessian(fun1e, x, method.args=list(d=0.01))
 system.time(replicate(1e5, sin(rnorm(10))))
 system.time(sin(rnorm(1e6)))
 
-## ----error = TRUE-------------------------------------------------------------
+## ----examplevec, error = TRUE-------------------------------------------------
 try({
 f <- function(x) quantile(x, 1:3/4)
 grad(f, x = 1:2)
@@ -81,7 +81,7 @@ grad(f, x = 1:3)
 jacobian(f, x = 1:3)
 jacobian(f, x = 1:4)
 
-## -----------------------------------------------------------------------------
+## ----sincos-------------------------------------------------------------------
 f <- function(x) c(sin(x), cos(x))
 f(1)
 jacobian(f, 1:2)
@@ -114,7 +114,7 @@ grad(f2, x = 1:4)
 jacobian(f2, x = 1:4)
 })
 
-## ----message=FALSE------------------------------------------------------------
+## ----richardsonprint, message=FALSE-------------------------------------------
 f <- function(x) {print(x); sin(x)}
 x0 <- 1
 g1 <- numDeriv::grad(f, x0)
@@ -122,18 +122,19 @@ print(g1)
 
 cat("Auto-detected step:", step.SW(sin, x0)$par, "\n")
 hgrid <- 10^seq(-10, -4, 1/32)
-errors <- sapply(hgrid, function(h) Grad(sin, x0, h = h)) - cos(x0)
+errors <- sapply(hgrid, function(h) Grad(sin, x0, h = h, cores = 1,
+            elementwise = TRUE, vectorised = TRUE, multivalued = FALSE)) - cos(x0)
 plot(hgrid, abs(errors), log = "xy", cex = 0.6)
 
 ## -----------------------------------------------------------------------------
 b <- fdCoef(stencil = c(-(2^(3:0)), 2^(0:3)))
 print(b)
 
-## -----------------------------------------------------------------------------
+## ----stencil------------------------------------------------------------------
 fd <- sin(x0 + b$stencil / 8e4) * b$weights
 abs(fd[1:4]) / sum(abs(fd[1:4]))
 
-## -----------------------------------------------------------------------------
+## ----richardson---------------------------------------------------------------
 g2 <- Grad(f, x0, h = 1.25e-05, acc.order = 4, vectorised = TRUE, report = 0)
 print(g2)
 
