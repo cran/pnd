@@ -35,7 +35,7 @@
 checkDimensions <- function(FUN, x, f0 = NULL, func = NULL,
                             elementwise = NA, vectorised = NA, multivalued = NA,
                             deriv.order = 1, acc.order = 2, side = 0, h = NULL, report = 1L,
-                            cores = 1, preschedule = TRUE, cl = NULL, ...) {
+                            zero.tol = sqrt(.Machine$double.eps), cores = 1, preschedule = TRUE, cl = NULL, ...) {
   if (missing(FUN)) {
     if (is.function(func)) {
       FUN <- func
@@ -70,8 +70,7 @@ checkDimensions <- function(FUN, x, f0 = NULL, func = NULL,
     return(c(elementwise = elementwise, vectorised = vectorised, multivalued = multivalued))
 
   if (is.null(h)) {
-    stepx <- pmax(abs(x), sqrt(.Machine$double.eps))
-    h.default <- stepx * .Machine$double.eps^(1/3) * 2
+    h.default <- stepx(x, deriv.order = deriv.order, acc.order = acc.order, zero.tol = zero.tol)
     h <- stats::median(h.default)
   }
 
@@ -265,7 +264,8 @@ generateGrid <- function(x, h, stencils, elementwise, vectorised) {
 #'   Central differences are recommended unless computational cost is prohibitive.
 #' @param h Numeric or character specifying the step size(s) for the numerical
 #'   difference or a method of automatic step determination (\code{"CR"}, \code{"CRm"},
-#'   \code{"DV"}, or \code{"SW"} to be used in [gradstep()]).
+#'   \code{"DV"}, or \code{"SW"} to be used in [gradstep()]). The default value is
+#'   described in \code{?GenD}.
 #' @param zero.tol Small positive integer: if \code{abs(x) >= zero.tol}, then, the automatically
 #'   guessed step size is relative (\code{x} multiplied by the step), unless an auto-selection
 #'   procedure is requested; otherwise, it is absolute.
@@ -274,8 +274,6 @@ generateGrid <- function(x, h, stencils, elementwise, vectorised) {
 #' @param h0 Numeric scalar of vector: initial step size for automatic search with
 #'   \code{gradstep()}.
 #' @param control A named list of tuning parameters passed to \code{gradstep()}.
-#' @param cores Integer specifying the number of CPU cores used for parallel computation.
-#' Recommended to be set to the number of physical cores on the machine minus one.
 #' @inheritParams runParallel
 #' @param func For compatibility with \code{numDeriv::grad()} only. If instead of
 #'   \code{FUN}, \code{func} is used, it will be reassigned to \code{FUN} with a warning.
@@ -300,6 +298,10 @@ generateGrid <- function(x, h, stencils, elementwise, vectorised) {
 #' of higher-order derivatives, which may not be readily available. Luckily,
 #' using \code{step = "SW"} invokes a reliable automatic data-driven step-size selection.
 #' Other options include \code{"DV"}, \code{"CR"}, and \code{"CRm"}.
+#' The step size  defaults to \code{1.5e-8} (the square root of machine epsilon)
+#' for \code{x} less than \code{1.5e-8},
+#' \code{(2.2e-16)^(1/(deriv.order + acc.order)) * x} for \code{x > 1}, and interpolates
+#' exponentially between these values for \code{1.5e-8 < x < 1}.
 #'
 #' The use of \code{f0} can reduce computation time similar to the use of \code{f.lower}
 #' and \code{f.upper} in \code{uniroot()}.
@@ -370,10 +372,20 @@ GenD <- function(FUN, x, elementwise = NA, vectorised = NA, multivalued = NA,
 
   n <- length(x)
 
-  stepx <- pmax(abs(x), sqrt(.Machine$double.eps))
-  h.default <- stepx * .Machine$double.eps^(1 / (deriv.order + acc.order))
+  # 'side', 'deriv.order', 'acc.order', 'h' must align with the length of x
+  if (is.null(side)) side <- numeric(n) # NULL --> default central, 0
+  if (length(side) == 1) side <- rep(side, n)
+  if (!(length(side) %in% c(1, n))) stop("The 'side' argument must have length 1 or length(x).")
+  side[!is.finite(side)] <- 0 # NA --> default central for numDeriv compatibility
+  if (!all(side %in% -1:1))
+    stop("'side' must be 0 for central, 1 for forward, and -1 for backward differences.")
+  if (length(deriv.order) == 1) deriv.order <- rep(deriv.order, n)
+  if (length(acc.order) == 1) acc.order <- rep(acc.order, n)
+  if (length(deriv.order) != n) stop("The argument 'deriv.order' must have length 1 or length(x).")
+  if (length(acc.order) != n) stop("The argument 'acc.order' must have length 1 or length(x).")
+
+  h.default <- stepx(x, deriv.order = deriv.order, acc.order = acc.order, zero.tol = zero.tol)
   if (is.null(h)) h <- h.default
-  # TODO: describe the default step size
 
   #########################################
   # BEGIN compatibility with numDeriv::grad
@@ -391,8 +403,7 @@ GenD <- function(FUN, x, elementwise = NA, vectorised = NA, multivalued = NA,
       margs <- ell$method.args
       ma <- list(eps = 1e-5, d = NA, zero.tol = 1e-5, r = 4, show.details = FALSE)
       # Using a better step size for one-sided differences
-      if (nd.method == "simple")
-        ma$eps <- (abs(x) * (x!=0) + (x==0)) * sqrt(.Machine$double.eps) * 2
+      if (nd.method == "simple") ma$eps <- ma$eps * .Machine$double.eps^(1/3 - 1/4)
       ma[intersect(names(margs), names(ma))] <- margs[intersect(names(margs), names(ma))]
       if (identical(unname(h), unname(h.default))) h <- ma$eps
       if (nd.method == "simple") {
@@ -435,17 +446,6 @@ GenD <- function(FUN, x, elementwise = NA, vectorised = NA, multivalued = NA,
 
   if (!is.function(FUN)) stop("'FUN' must be a function.")
 
-  # 'side', 'deriv.order', 'acc.order', 'h' must align with the length of x
-  if (is.null(side)) side <- numeric(n) # NULL --> default central, 0
-  if (length(side) == 1) side <- rep(side, n)
-  if (!(length(side) %in% c(1, n))) stop("The 'side' argument must have length 1 or length(x).")
-  side[!is.finite(side)] <- 0 # NA --> default central for numDeriv compatibility
-  if (!all(side %in% -1:1))
-    stop("'side' must be 0 for central, 1 for forward, and -1 for backward differences.")
-
-  if (length(deriv.order) == 1) deriv.order <- rep(deriv.order, n)
-  if (length(acc.order) == 1) acc.order <- rep(acc.order, n)
-
 
   # TODO: the part where step is compared to step.CR, step.DV etc.
   # TODO: for long vectorised argument, vectorise the check
@@ -462,8 +462,6 @@ GenD <- function(FUN, x, elementwise = NA, vectorised = NA, multivalued = NA,
     stop("The argument 'h' (step size) must be positive.")
   }
   if (length(h) == 1) h <- rep(h, n)
-  if (length(deriv.order) != n) stop("The argument 'deriv.order' must have length 1 or length(x).")
-  if (length(acc.order) != n) stop("The argument 'acc.order' must have length 1 or length(x).")
   if (length(h) != n) stop("The argument 'h' (step size) must have length 1 or length(x).")
 
   # If all deriv.order, acc.order, side are the same, invert Vandermonde matrices only once
@@ -482,7 +480,7 @@ GenD <- function(FUN, x, elementwise = NA, vectorised = NA, multivalued = NA,
     chk <- checkDimensions(FUN = FUN, x = x, f0 = f0, elementwise = elementwise,
                            vectorised = vectorised, multivalued = multivalued,
                            deriv.order = deriv.order, acc.order = acc.order,
-                           side = side, h = h, report = report, cl = cl, func = func,
+                           side = side, h = h, report = report, cl = cl, func = func, zero.tol = zero.tol,
                            cores = cores, preschedule = preschedule)
   } else {
     chk <- c(elementwise = unname(elementwise), vectorised = unname(vectorised),
@@ -529,7 +527,7 @@ GenD <- function(FUN, x, elementwise = NA, vectorised = NA, multivalued = NA,
     attr(jac, "step.size") <- h
     if (autostep) {
       attr(jac, "step.size.method") <- method
-    } else if (all(h == (abs(x) + (x==0)) * .Machine$double.eps^(1 / (deriv.order + acc.order)))) {
+    } else if (all(h == h.default)) {
       attr(jac, "step.size.method") <- "default"
     } else if (compat) {
       attr(jac, "step.size.method") <- "numDeriv-like"
@@ -648,7 +646,7 @@ Grad <- function(FUN, x, elementwise = NA, vectorised = NA, multivalued = NA,
     chk <- checkDimensions(FUN = FUN, x = x, f0 = f0, elementwise = elementwise,
                            vectorised = vectorised, multivalued = multivalued,
                            deriv.order = deriv.order, acc.order = acc.order,
-                           side = side, h = h, report = report, cl = cl, func = func,
+                           side = side, h = h, report = report, cl = cl, func = func, zero.tol = zero.tol,
                            cores = cores, preschedule = preschedule)
   } else {
     chk <- c(elementwise = elementwise, vectorised = vectorised, multivalued = multivalued)
@@ -668,7 +666,7 @@ Grad <- function(FUN, x, elementwise = NA, vectorised = NA, multivalued = NA,
 
 
 #' Jacobian matrix computation with parallel capabilities
-#'
+#'s
 #' Computes the numerical Jacobian for vector-valued functions. Its columns are
 #' partial derivatives of the function with respect to the input elements.
 #' This function supports both two-sided (central, symmetric) and
@@ -732,7 +730,7 @@ Jacobian <- function(FUN, x, elementwise = NA, vectorised = NA, multivalued = NA
     chk <- checkDimensions(FUN = FUN, x = x, f0 = f0, elementwise = elementwise,
                            vectorised = vectorised, multivalued = multivalued,
                            deriv.order = deriv.order, acc.order = acc.order,
-                           side = side, h = h, report = report, cl = cl, func = func,
+                           side = side, h = h, report = report, cl = cl, func = func, zero.tol = zero.tol,
                            cores = cores, preschedule = preschedule)
   } else {
     chk <- c(elementwise = elementwise, vectorised = vectorised, multivalued = multivalued)

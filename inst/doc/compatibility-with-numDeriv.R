@@ -70,12 +70,10 @@ system.time(replicate(1e5, sin(rnorm(10))))
 system.time(sin(rnorm(1e6)))
 
 ## ----examplevec, error = TRUE-------------------------------------------------
-try({
 f <- function(x) quantile(x, 1:3/4)
 grad(f, x = 1:2)
 grad(f, x = 1:4)
 grad(f, x = 1:3)
-})
 
 ## -----------------------------------------------------------------------------
 jacobian(f, x = 1:3)
@@ -88,16 +86,13 @@ jacobian(f, 1:2)
 jacobian(f, 1:3)
 
 ## ----error = TRUE-------------------------------------------------------------
-try({
 f2 <- function(x) c(sin(x), cos(x))  # Vector output -> gradient is unsupported
 grad(f2, x = 1:4)
 hessian(f2, x = 1:4)
 
 Grad(f2, x = 1:4)
-})
 
 ## ----error = TRUE-------------------------------------------------------------
-try({
 f2 <- function(x) c(sum(sin(x)), sum(cos(x)))
 grad(f2, x = 1:4)
 hessian(f2, x = 1:4)
@@ -105,17 +100,27 @@ jacobian(f2, x = 1:4)
 
 Grad(f2, x = 1:4)
 Jacobian(f2, x = 1:4)
-})
 
 ## ----error = TRUE-------------------------------------------------------------
-try({
 f2 <- function(x) c(sin(x), cos(x))
 grad(f2, x = 1:4)
 jacobian(f2, x = 1:4)
-})
+
+## -----------------------------------------------------------------------------
+f <- function(x) {cat(x, " "); sin(x)}
+grad(f, 1.7e-5, method.args = list(r = 2))  # step 1.0e-4
+grad(f, 1.8e-5, method.args = list(r = 2))  # step 1.8e-9
+
+## -----------------------------------------------------------------------------
+xseq <- 10^seq(-10, 2, 0.25)
+sseq2 <- stepx(xseq, acc.order = 2)
+sseq4 <- stepx(xseq, acc.order = 4)
+matplot(xseq, cbind(sseq2, sseq4), lty = 1:2, col = 1, type = "l", bty = "n",
+        log = "xy", main = "Default step size", xlab = "Point", ylab = "Step")
+legend("topleft", c("2nd-order accurate", "4th-order accurate"), lty = 1:2)
 
 ## ----richardsonprint, message=FALSE-------------------------------------------
-f <- function(x) {print(x); sin(x)}
+f <- function(x) {cat(x, " "); sin(x)}
 x0 <- 1
 g1 <- numDeriv::grad(f, x0)
 print(g1)
@@ -131,11 +136,12 @@ b <- fdCoef(stencil = c(-(2^(3:0)), 2^(0:3)))
 print(b)
 
 ## ----stencil------------------------------------------------------------------
-fd <- sin(x0 + b$stencil / 8e4) * b$weights
+fd <- sin(x0 + b$stencil / 8 * 1e-4) * b$weights
 abs(fd[1:4]) / sum(abs(fd[1:4]))
 
 ## ----richardson---------------------------------------------------------------
-g2 <- Grad(f, x0, h = 1.25e-05, acc.order = 4, vectorised = TRUE, report = 0)
+g2 <- Grad(f, x0, h = 1.25e-05, acc.order = 4, report = 0,
+           elementwise = TRUE, vectorised = TRUE, multivalued = FALSE)
 print(g2)
 
 c(diff = g1 - g2, Error8 = cos(x0) - g1, Error4 = cos(x0) - g2)

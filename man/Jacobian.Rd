@@ -2,7 +2,16 @@
 % Please edit documentation in R/gradient.R
 \name{Jacobian}
 \alias{Jacobian}
-\title{Jacobian matrix computation with parallel capabilities}
+\title{Jacobian matrix computation with parallel capabilities
+s
+Computes the numerical Jacobian for vector-valued functions. Its columns are
+partial derivatives of the function with respect to the input elements.
+This function supports both two-sided (central, symmetric) and
+one-sided (forward or backward) derivatives. It can utilise parallel processing
+to accelerate computation of gradients for slow functions or
+to attain higher accuracy faster. Currently, only Mac and Linux are supported
+\code{parallel::mclapply()}. Windows support with \code{parallel::parLapply()}
+is under development.}
 \usage{
 Jacobian(
   FUN,
@@ -63,7 +72,8 @@ The final error will be of the order \eqn{O(h^{\mathrm{acc.order}})}{O(h^acc.ord
 
 \item{h}{Numeric or character specifying the step size(s) for the numerical
 difference or a method of automatic step determination (\code{"CR"}, \code{"CRm"},
-\code{"DV"}, or \code{"SW"} to be used in \code{\link[=gradstep]{gradstep()}}).}
+\code{"DV"}, or \code{"SW"} to be used in \code{\link[=gradstep]{gradstep()}}). The default value is
+described in \code{?GenD}.}
 
 \item{zero.tol}{Small positive integer: if \code{abs(x) >= zero.tol}, then, the automatically
 guessed step size is relative (\code{x} multiplied by the step), unless an auto-selection
@@ -105,6 +115,8 @@ to an input coordinate. For scalar-valued functions, a warning is issued and
 the output is returned as a row matrix.
 }
 \description{
+Jacobian matrix computation with parallel capabilities
+s
 Computes the numerical Jacobian for vector-valued functions. Its columns are
 partial derivatives of the function with respect to the input elements.
 This function supports both two-sided (central, symmetric) and
