@@ -1,26 +1,15 @@
-# pnd 0.dev roadmap (2024-XX-XX)
+# pnd 0.dev roadmap (2025-XX-XX)
 
 - BUG: Matching in the Hessian is too slow -- de-duplicate first
-- BUG: 1x1 Hessians?
 - UX: make the warnings once-per-session; print the first error in runParallel in Grad
-- UX: add a pretty print method for the gradient, Jacobian, and step size
-- FEATURE: add an algorithm where the two lines intersect; should fix `sin'(pi/2)` with two branches
-- FEATURE: Implement de-duplication in the grid of points; reuse f0 and other precomputed values
+- FEATURE: add a plotting method for all step-size searches
+- FEATURE: add options for default accuracy (maybe 4?)
 - FEATURE: If `h` is a character in `Grad`, extract the gradient directly if the order is 2
 - FEATURE: disable parallelisation if `f(x)` takes less than 0.002 s
-- FEATURE: SW algorithm for arbitrary derivative and accuracy orders
+- FEATURE: SW, M, K algorithm for arbitrary derivative and accuracy orders
 - FEATURE: if any algorithm returns a step size larger than `0.5*|x|`, throw a warning
-- FEATURE: update the rounding error as the estimated sum of differences and evaluations of f
-- FEATURE: Handle NA in step size selection
-- FEATURE: Auto-shrink the step size at the beginning of all procedures if FUN(x) is not finite
-- FEATURE: Add absolute or relative step size
-- FEATURE: add `diagnostics` to return an attribute of grad containing original f evaluations
 - FEATURE: Add a vector of step sizes for different arguments
-- FEATURE: Pass arguments from Grad to `fdCoef`, e.g. allow stencils in `Grad` or stencil matrices like in the presentation
 - FEATURE: Create `control` or `method.args` for `Grad` with automatic step selection
-- FEATURE: Hessian via direct 4-term difference for a faster evaluation
-- FEATURE: Functions for fast and reliable Hessian computation based on parallel gradient evaluation
-- FEATURE: Return attribute of the estimated absolute error
 - FEATURE: Arbitrary mixed orders
 - MISC: Write the list of controls on the help page of `gradstep()` explicitly!
 - MISC: Check which packages depend on `numDeriv` and check compatibility with 10 top!
@@ -31,6 +20,21 @@
 - DEV: Ensure unit-test coverage >90%
 - DEV: Check the compatibility between the function and its documentation
 - DEV: Check the release with `todor::todor_package()`, `lintr::lint_package()`, `R CMD check --as-cran`, and `goodpractice::gp(checks = all_checks()[!grepl("^lintr", all_checks())])`
+
+# pnd 0.1.0 (2015-XX-XX)
+- Feature: original kink-based algorithm for step size selection `step.K()`
+- Feature: added safety shrinking if `FUN(x)` is finite but `FUN(x+h)` is not in all SSS routines
+- Feature: added S3 printing methods for derivatives and step sizes
+- Feature: removed the `diagnostics` and `report` arguments; the iteration information is always saved, but not printed
+- Feature: added support for `max.rel.error` for all step-selection methods
+- Feature: all step-search methods now return both the truncation and the rounding-error estimate
+- Fix: corrected the wrong formula for the plug-in step size
+- Fix: now 1x1 Hessians can be computed (why, though, if second derivatives exist?)
+- Fix: added the `v` argument for `numDeriv` compatibility
+
+# pnd 0.0.10 (2025-04-02)
+- Fix: GitHub issue #2 -- `checkDimensions` could not handle character `h` passed for auto-selection
+- Fix: GitHub issue #1 -- function arguments in `...` did non propagate properly to `step...` functions
 
 # pnd 0.0.9 (2025-03-10)
 - Fix: fixed a regression with the default step size

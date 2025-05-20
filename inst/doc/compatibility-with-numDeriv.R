@@ -70,10 +70,12 @@ system.time(replicate(1e5, sin(rnorm(10))))
 system.time(sin(rnorm(1e6)))
 
 ## ----examplevec, error = TRUE-------------------------------------------------
+try({
 f <- function(x) quantile(x, 1:3/4)
 grad(f, x = 1:2)
 grad(f, x = 1:4)
 grad(f, x = 1:3)
+})
 
 ## -----------------------------------------------------------------------------
 jacobian(f, x = 1:3)
@@ -86,13 +88,16 @@ jacobian(f, 1:2)
 jacobian(f, 1:3)
 
 ## ----error = TRUE-------------------------------------------------------------
+try({
 f2 <- function(x) c(sin(x), cos(x))  # Vector output -> gradient is unsupported
 grad(f2, x = 1:4)
 hessian(f2, x = 1:4)
 
 Grad(f2, x = 1:4)
+})
 
 ## ----error = TRUE-------------------------------------------------------------
+try({
 f2 <- function(x) c(sum(sin(x)), sum(cos(x)))
 grad(f2, x = 1:4)
 hessian(f2, x = 1:4)
@@ -100,11 +105,14 @@ jacobian(f2, x = 1:4)
 
 Grad(f2, x = 1:4)
 Jacobian(f2, x = 1:4)
+})
 
 ## ----error = TRUE-------------------------------------------------------------
+try({
 f2 <- function(x) c(sin(x), cos(x))
 grad(f2, x = 1:4)
 jacobian(f2, x = 1:4)
+})
 
 ## -----------------------------------------------------------------------------
 f <- function(x) {cat(x, " "); sin(x)}
@@ -140,7 +148,7 @@ fd <- sin(x0 + b$stencil / 8 * 1e-4) * b$weights
 abs(fd[1:4]) / sum(abs(fd[1:4]))
 
 ## ----richardson---------------------------------------------------------------
-g2 <- Grad(f, x0, h = 1.25e-05, acc.order = 4, report = 0,
+g2 <- Grad(f, x0, h = 1.25e-05, acc.order = 4,
            elementwise = TRUE, vectorised = TRUE, multivalued = FALSE)
 print(g2)
 
@@ -153,7 +161,7 @@ print(fp1, digits = 16)
 
 ## -----------------------------------------------------------------------------
 # f <- function(x) x^9
-# fp2 <- pnd::Grad(f, x = 1, h = "SW", acc.order = 8, vectorised1d = TRUE, report = 2)
+# fp2 <- pnd::Grad(f, x = 1, h = "SW", acc.order = 8, vectorised1d = TRUE)
 # print(attributes(fp2)$step.search$iterations, digits = 16)
 
 ## -----------------------------------------------------------------------------

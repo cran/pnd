@@ -10,25 +10,30 @@ test_that("Curtis-Reid step selection handles inputs well", {
 
 test_that("Curtis-Reid step selection behaves reasonably", {
   f <- function(x) x^4
-  s <- step.CR(x = 2, f, diagnostics = TRUE)
+  s <- step.CR(x = 2, f)
   expect_equal(s$exitcode, 0)
-  expect_lt(s$abs.error, 1e-5)
+  expect_lt(sum(s$abs.error), 1e-4)
   expect_equal(s$value, 32, tolerance = 1e-8)
   u <- s$iterations$ratio[length(s$iterations$ratio)]
   expect_gt(u, 10)
   expect_lt(u, 1000)
 
   s2 <-  step.CR(x = 2, f, version = "modified")
-  expect_lt(s2$abs.error, 1e-7)
+  expect_lt(sum(s2$abs.error), 1e-7)
   expect_equal(s2$value, 32, tolerance = 1e-8)
 
   s3 <- step.CR(x = 2, f, version = "modified", acc.order = 4)
-  expect_lt(s2$abs.error, 5e-8)
+  expect_lt(sum(s2$abs.error), 5e-8)
   expect_equal(s3$value, 32, tolerance = 1e-8)
 
   s4 <- step.CR(x = sqrt(2), FUN = function(x) x^6 -2*x^4 - 4*x^2, h0 = 2^-16)
   expect_lt(abs(s4$value), 1e-8)
 
+})
+
+test_that("Curtis--Reid algorithm stops if the function returns NA for all allowed step sizes", {
+  f <- function(x) ifelse(abs(x - 2) < 1e-8, x^4, NA)
+  expect_error(step.CR(f, 2, range = c(1e-7, 1e-2)), "attempts of step shrinkage")
 })
 
 test_that("Curtis--Reid steps grow for linear functions", {

@@ -6,7 +6,6 @@
 #'
 #' @inheritParams GenD
 #'
-#'
 #' @return A list with elements:
 #' \itemize{
 #'   \item \code{xlist}: a list of unique coordinate shifts,
@@ -37,10 +36,6 @@ generateGrid2 <- function(x, side, acc.order, h) {
     xmat
   })
   xmat.diagonal <- do.call(rbind, xmat.diagonal)
-  n1 <- nrow(xmat.diagonal)
-  # The duplicated element would be x0
-  is.x0 <- which(rownames(xmat.diagonal) == "x")
-  is.dup.x0 <- is.x0[-1]
 
   sw.list <- lapply(1:n, function(j) fdCoef(deriv.order = 1, acc.order = acc.order[j], side = side[j]))
   bh.list <- lapply(1:n, function(j) sw.list[[j]]$stencil * h[j])  # Shifts
@@ -50,41 +45,52 @@ generateGrid2 <- function(x, side, acc.order, h) {
     dx[, j] <- bh.list[[j]]
     dx
   })
-  inds <- t(utils::combn(x = n, m = 2))
-  colnames(inds) <- c("i", "j")
 
-  xmat.offdiag <- lapply(seq_len(nrow(inds)), function(k) {
-    i <- inds[k, "i"]
-    j <- inds[k, "j"]
-    dxi <- dx.list[[i]]
-    dxj <- dx.list[[j]]
-    # For each step from dx.list[[i]] and dx.list[[j]]...
-    iinds <- cbind(ii = rep(seq_len(nrow(dxi)), nrow(dxj)),
-                   jj = rep(seq_len(nrow(dxj)), each = nrow(dxi)))
-    # Two steps the weights are multiplied
-    xlist <- lapply(seq_len(nrow(iinds)), function(kk) {
-      ii <- iinds[kk, "ii"]
-      jj <- iinds[kk, "jj"]
-      return(list(x = x + dxi[ii, ] + dxj[jj, ],
-                  weights = w.list[[i]][ii] * w.list[[j]][jj]))
+  if (n >= 2) {
+    inds <- t(utils::combn(x = n, m = 2))
+    colnames(inds) <- c("i", "j")
+
+    xmat.offdiag <- lapply(seq_len(nrow(inds)), function(k) {
+      i <- inds[k, "i"]
+      j <- inds[k, "j"]
+      dxi <- dx.list[[i]]
+      dxj <- dx.list[[j]]
+      # For each step from dx.list[[i]] and dx.list[[j]]...
+      iinds <- cbind(ii = rep(seq_len(nrow(dxi)), nrow(dxj)),
+                     jj = rep(seq_len(nrow(dxj)), each = nrow(dxi)))
+      # Two steps the weights are multiplied
+      xlist <- lapply(seq_len(nrow(iinds)), function(kk) {
+        ii <- iinds[kk, "ii"]
+        jj <- iinds[kk, "jj"]
+        return(list(x = x + dxi[ii, ] + dxj[jj, ],
+                    weights = w.list[[i]][ii] * w.list[[j]][jj]))
+      })
+      xmat <- do.call(rbind, lapply(xlist, "[[", "x"))
+      xmat <- cbind(xmat, index1 = i, index2 = j,
+                    weights = do.call(c, lapply(xlist, "[[", "weights")))
+      xmat
     })
-    xmat <- do.call(rbind, lapply(xlist, "[[", "x"))
-    xmat <- cbind(xmat, index1 = i, index2 = j,
-                  weights = do.call(c, lapply(xlist, "[[", "weights")))
-    xmat
-  })
-  xmat.offdiag <- do.call(rbind, xmat.offdiag)
-  n2 <- nrow(xmat.offdiag)
+    xmat.offdiag <- do.call(rbind, xmat.offdiag)
+  } else {  # 1x1 Hessians
+    xmat.offdiag <- NULL
+  }
 
-  # De-duplicate from the very beginning, mark f0
+
+  # De-duplicate only the main diagonal the very beginning
   xvals <- rbind(xmat.diagonal, xmat.offdiag)
   rownames(xvals) <- NULL
   weights <- xvals[, "weights"]
   i1 <- as.integer(xvals[, "index1"])
   i2 <- as.integer(xvals[, "index2"])
   xvals <- xvals[, 1:n, drop = FALSE]  # The true evaluation grid
+  xvals.diag <- xmat.diagonal[, 1:n, drop = FALSE]
   if (!is.null(names(x))) colnames(xvals) <- names(x)
-  uniq.i <- dupRowInds(xvals)
+  # The duplicates are possible only with f0 on the main diagonal
+  uniq.i <- dupRowInds(xvals.diag)
+  # The off-diagonal elements have unique sequential indices
+  # Safeguarding against empty matrices
+  if (!is.null(xmat.offdiag))
+    uniq.i <- c(uniq.i, seq(max(uniq.i)+1, length.out = nrow(xmat.offdiag)))
   xvals <- t(xvals) # Column operations are faster than row operations
   xvals <- lapply(seq_len(ncol(xvals)), function(i) xvals[, i])
 
@@ -122,9 +128,6 @@ generateGrid2 <- function(x, side, acc.order, h) {
 #' @param control A named list of tuning parameters passed to \code{gradstep()}.
 #' @inheritParams runParallel
 #' @param func Deprecated; for \code{numDeriv::grad()} compatibility only.
-#' @param report Integer: if \code{0}, returns a gradient without any attributes; if \code{1},
-#'   attaches the step size and its selection method: \code{2} or higher, attaches the full
-#'   diagnostic output (overrides \code{diagnostics = FALSE} in \code{control}).
 #' @param ... Additional arguments passed to \code{FUN}.
 #'
 #' @details
@@ -168,7 +171,7 @@ generateGrid2 <- function(x, side, acc.order, h) {
 Hessian <- function(FUN, x, side = 0, acc.order = 2, h = NULL,
                     h0 = NULL, control = list(), f0 = NULL,
                     cores = 1, preschedule = TRUE, cl = NULL,
-                    func = NULL, report = 1L, ...) {
+                    func = NULL, ...) {
   if (is.function(x) && !is.function(FUN)) {
     warning("The argument order must be FUN and then x, not vice versa.")
     x0 <- FUN
@@ -203,7 +206,7 @@ Hessian <- function(FUN, x, side = 0, acc.order = 2, h = NULL,
     if (is.null(nd.method) && has.nd.args) nd.method <- "Richardson"
     if (length(nd.method) == 1 && nd.method %in% c("simple", "complex", "Richardson")) {
       margs <- ell$method.args
-      ma <- list(eps = 1e-4, d = NA, zero.tol = 1e-5, r = 4, show.details = FALSE)
+      ma <- list(eps = 1e-4, d = NA, zero.tol = 1e-5, r = 4, v = NA, show.details = FALSE)
       # Using a slightly smaller step size for one-sided differences
       if (nd.method == "simple") ma$eps <- ma$eps * .Machine$double.eps^(1/4 - 1/5)
       ma[intersect(names(margs), names(ma))] <- margs[intersect(names(margs), names(ma))]
@@ -214,21 +217,22 @@ Hessian <- function(FUN, x, side = 0, acc.order = 2, h = NULL,
         stop("Complex Hessians not implemented yet.")
       } else if (nd.method == "Richardson") {
         side <- numeric(n)
-        acc.order <- if (!is.null(ma$r) && is.numeric(ma$r)) 2*ma$r else 8
+        acc.order <- if (!is.null(ma$r) && is.numeric(ma$r)) rep(2*ma$r, n) else rep(8L, n)
         if (is.na(ma$d)) ma$d <- .Machine$double.eps^(1 / (2 + acc.order))
         if (is.numeric(ma$v)) {
-          warning(paste0("Unlike numDeriv, which uses a large initial step size and ",
-                         "shrinkage, pnd uses a smaller initial step and an equispaced ",
-                         "symmetric grid. The method argument 'v' will be therefore ignored."))
+          warning("Unlike numDeriv, which uses a large initial step size and ",
+                  "shrinkage, pnd uses a smaller initial step and an equispaced ",
+                  "symmetric grid. The method argument 'v' will be therefore ignored.")
         }
         is.small <- abs(x) < ma$zero.tol
         h <- (ma$d * abs(x) * !is.small) + (ma$eps * is.small)
       }
       ell[["method"]] <- NULL
     }
-    warning(paste0("You are using numDeriv-like syntax. We recommend using the new syntax ",
-                   "with more appropriate default values and facilities for automatic ",
-                   "step-size selection. See ?Hessian for more information."))
+    if (length(acc.order) != n) stop("The 'r' method argument must have length 1.")
+    warning("You are using numDeriv-like syntax. We recommend using the new syntax ",
+            "with more appropriate default values and facilities for automatic ",
+            "step-size selection. See ?Hessian for more information.")
   }
 
   if (missing(FUN)) {
@@ -273,14 +277,14 @@ Hessian <- function(FUN, x, side = 0, acc.order = 2, h = NULL,
   nonfinite.f   <- !sapply(fvals, is.finite)
   horrible.f  <- nonfinite.f & (!sapply(fvals, is.na)) & (!sapply(fvals, is.infinite))
   if (any(horrible.f)) {
-    warning(paste0("'FUN' must output numeric values only, but some non-numeric values were ",
-                   "returned (not even NA or NaN). Some gradient coordinates can be NA. Possible reason: ",
-                   "returning character or other type. Check the function output."))
+    warning("'FUN' must output numeric values only, but some non-numeric values were ",
+            "returned (not even NA or NaN). Some gradient coordinates can be NA. Possible reason: ",
+            "returning character or other type. Check the function output.")
     fvals[horrible.f] <- NA_real_
   } else if (any(nonfinite.f)) {
-    warning(paste0("'FUN' must output numeric values only, but some non-numeric values were ",
-                   "returned (NA or NaN). Some gradient coordinates can be NA. Possible reason: point at ",
-                   "the boundary of the support of FUN. Try side = 1 or -1 for a one-sided solution."))
+    warning("'FUN' must output numeric values only, but some non-numeric values were ",
+            "returned (NA or NaN). Some gradient coordinates can be NA. Possible reason: point at ",
+            "the boundary of the support of FUN. Try side = 1 or -1 for a one-sided solution.")
     fvals[nonfinite.f] <- NA_real_
   }
 
@@ -304,17 +308,16 @@ Hessian <- function(FUN, x, side = 0, acc.order = 2, h = NULL,
 
   if (!is.null(names(x))) colnames(hes) <- rownames(hes) <- names(x)
 
-  if (report > 0) {
-    attr(hes, "step.size") <- h
+  attr(hes, "step.size") <- h
     # TODO: After implementing autosteps, return the syntax here from Grad
-    if (all(h == h.default)) {
-      attr(hes, "step.size.method") <- "default"
-    } else if (compat) {
-      attr(hes, "step.size.method") <- "numDeriv-like"
-    } else {
-      attr(hes, "step.size.method") <- "user-supplied"
-    }
+  if (all(h == h.default)) {
+    attr(hes, "step.size.method") <- "default"
+  } else if (compat) {
+    attr(hes, "step.size.method") <- "numDeriv-like"
+  } else {
+    attr(hes, "step.size.method") <- "user-supplied"
   }
 
+  class(hes) <- "Hessian"
   return(hes)
 }

@@ -22,6 +22,7 @@ Jacobian(
   deriv.order = 1L,
   side = 0,
   acc.order = 2,
+  stencil = NULL,
   h = NULL,
   zero.tol = sqrt(.Machine$double.eps),
   h0 = NULL,
@@ -33,7 +34,6 @@ Jacobian(
   func = NULL,
   method = NULL,
   method.args = list(),
-  report = 1L,
   ...
 )
 }
@@ -71,6 +71,9 @@ Central differences are recommended unless computational cost is prohibitive.}
 \item{acc.order}{Integer or vector of integers specifying the desired accuracy order
 for each element of \code{x}.
 The final error will be of the order \eqn{O(h^{\mathrm{acc.order}})}{O(h^acc.order)}.}
+
+\item{stencil}{Optional custom vector of points for function evaluation.
+Must include at least \code{m+1} points for the \code{m}-th order derivative.}
 
 \item{h}{Numeric or character specifying the step size(s) for the numerical
 difference or a method of automatic step determination (\code{"CR"}, \code{"CRm"},
@@ -110,16 +113,7 @@ is \code{TRUE}) or \code{parLapplyLB()} on that cluster on Windows, and \code{mc
 \item{method.args}{For compatibility with \code{numDeriv::grad()} only. Check
 \code{?numDeriv::grad} for a list of values. Non-empty lists result in a warning.}
 
-\item{report}{Integer for the level of detail in the output. If \code{0},
-returns a gradient without any attributes; if \code{1},
-attaches the step size and its selection method: \code{2} or higher attaches the full
-diagnostic output as an attribute.}
-
-\item{...}{Additional arguments passed to \code{FUN}. Important! Since R does partial
-matching for argument names, using arguments like \code{f(x, a)} and passing \code{a = 1}
-to \code{\link[=GenD]{GenD()}}, \code{\link[=Grad]{Grad()}}, or \code{\link[=Jacobian]{Jacobian()}} will result in the interpretation \code{acc.order = 1}
-because the latter is a named argument of these functions. Either supply the full names of all
-similar-looking arguments or name arguments differently (e.g. \code{a0} instead of \code{a}).}
+\item{...}{Ignored.}
 }
 \value{
 Matrix where each row corresponds to a function output and each column

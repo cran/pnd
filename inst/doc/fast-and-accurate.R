@@ -139,35 +139,35 @@ lines(xgrid, squish(dddf1(xgrid)), col = 4)
 axis(2, squish(ats <- c(-1, 0, 1, 2, 5, 10, 20)), labels = ats, las = 1)
 
 ## ----eval=FALSE, include=FALSE------------------------------------------------
-#  f1 <- function(x) x^4
-#  try1.good  <- step.SW(x = 1, f1) # Starts at h0 = 1e-5
-#  try1.small <- step.SW(x = 1, f1, h0 = 1e-9)
-#  try1.large <- step.SW(x = 1, f1, h0 = 10)
-#  try1.huge <- step.SW(x = 1, f1, h0 = 1000)
-#  try1 <- list(try1.good, try1.small, try1.large, try1.huge)
-#  
-#  hvals1 <- sapply(try1, function(x) x$iterations$h[1])
-#  for (i in 1:4) {
-#    cat("\n\nDiagnostics for the SW79 algorithm, f(x) = x^4, x = 1, h0 =", hvals1[i], "\n")
-#    cairo_pdf(paste0("power-", i, ".pdf"), 6.2, 4)
-#    tryCatch(par(family = "Fira Sans"), error = \(e) NULL, warning = \(w) NULL)
-#    printDiag(try1[[i]], true.val = 4, main = paste0("f(x) = x^4 with initial h = ", hvals1[i]))
-#    dev.off()
-#  }
-#  
-#  f2 <- sin
-#  try2.good  <- step.SW(x = pi/4, f2) # Starts at h0 = 1e-5
-#  try2.small <- step.SW(x = pi/4, f2, h0 = 1e-9)
-#  try2.large <- step.SW(x = pi/4, f2, h0 = 10)
-#  try2.huge <- step.SW(x = pi/4, f2, h0 = 1000) # Observe the custom warning
-#  try2 <- list(try2.good, try2.small, try2.large, try2.huge)
-#  
-#  hvals2 <- sapply(try1, function(x) x$iterations$h[1])
-#  for (i in 1:4) {
-#    cat("\n\nDiagnostics for the SW79 algorithm, f(x) = sin(x), x = pi/4, h0 =", hvals1[i], "\n")
-#    cairo_pdf(paste0("sine-", i, ".pdf"), 6.2, 4)
-#    tryCatch(par(family = "Fira Sans"), error = \(e) NULL, warning = \(w) NULL)
-#    printDiag(try2[[i]], true.val = sqrt(2)/2, main = paste0("f(x) = sin(x) with initial h = ", hvals2[i]))
-#    dev.off()
-#  }
+# f1 <- function(x) x^4
+# try1.good  <- step.SW(x = 1, f1) # Starts at h0 = 1e-5
+# try1.small <- step.SW(x = 1, f1, h0 = 1e-9)
+# try1.large <- step.SW(x = 1, f1, h0 = 10)
+# try1.huge <- step.SW(x = 1, f1, h0 = 1000)
+# try1 <- list(try1.good, try1.small, try1.large, try1.huge)
+# 
+# hvals1 <- sapply(try1, function(x) x$iterations$h[1])
+# for (i in 1:4) {
+#   cat("\n\nDiagnostics for the SW79 algorithm, f(x) = x^4, x = 1, h0 =", hvals1[i], "\n")
+#   cairo_pdf(paste0("power-", i, ".pdf"), 6.2, 4)
+#   tryCatch(par(family = "Fira Sans"), error = \(e) NULL, warning = \(w) NULL)
+#   printDiag(try1[[i]], true.val = 4, main = paste0("f(x) = x^4 with initial h = ", hvals1[i]))
+#   dev.off()
+# }
+# 
+# f2 <- sin
+# try2.good  <- step.SW(x = pi/4, f2) # Starts at h0 = 1e-5
+# try2.small <- step.SW(x = pi/4, f2, h0 = 1e-9)
+# try2.large <- step.SW(x = pi/4, f2, h0 = 10)
+# try2.huge <- step.SW(x = pi/4, f2, h0 = 1000) # Observe the custom warning
+# try2 <- list(try2.good, try2.small, try2.large, try2.huge)
+# 
+# hvals2 <- sapply(try1, function(x) x$iterations$h[1])
+# for (i in 1:4) {
+#   cat("\n\nDiagnostics for the SW79 algorithm, f(x) = sin(x), x = pi/4, h0 =", hvals1[i], "\n")
+#   cairo_pdf(paste0("sine-", i, ".pdf"), 6.2, 4)
+#   tryCatch(par(family = "Fira Sans"), error = \(e) NULL, warning = \(w) NULL)
+#   printDiag(try2[[i]], true.val = sqrt(2)/2, main = paste0("f(x) = sin(x) with initial h = ", hvals2[i]))
+#   dev.off()
+# }
 

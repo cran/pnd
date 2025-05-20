@@ -2,10 +2,12 @@
 
 test_that("step size length h0 must be 1 or length(x)", {
   expect_error(gradstep(x = 1, FUN = sin, h0 = c(1e-5, 1e-6)), "must be a scalar")
-  expect_error(gradstep(x = 1:2,
-                        FUN = function(z) {if (length(z)>1) stop("Non-vectorised"); z^2}),
-               "must be finite")
-  expect_equal(gradstep(sin, 1, h0 = 0.01)$exitcode, 0)
+  expect_error(gradstep(x = 1:2, FUN = function(z) {
+    if (length(z) > 1) stop("Non-vectorised")
+    z^2
+    }),
+    "must be finite")
+  expect_equal(gradstep(sin, 1, h0 = 0.0001)$exitcode, 0)
   # expect_equal(gradstep(function(x) sum(sin(x)), 1:3, h0 = 0.01)$exitcode, rep(0, 3))
 })
 
@@ -32,7 +34,7 @@ test_that("the range is correctly reversed", {
 test_that("for unfortunate inputs, the search may hit the boundary", {
   s.sw <- suppressWarnings(gradstep(x = 1e10, FUN = sin, h0 = 1e-20, method = "SW"))
   expect_equal(s.sw$exitcode, 3)
-  expect_true(is.finite(s.sw$abs.err))
+  expect_lt(sum(s.sw$abs.err), 1e-3)
 
   s.dv <- gradstep(x = 1, FUN = sin, method = "DV", control = list(range = c(1e-20, 1e-22)))
   expect_equal(s.dv$exitcode, 3)
@@ -44,7 +46,7 @@ test_that("for unfortunate inputs, the search may hit the boundary", {
 #   expect_equal(s.grad$exitcode, rep(0, 4))
 #
 #   f1 <- function(x) sin(x) + sum(sin(2:4))
-#   s1 <- step.SW(f1, 1, diagnostics = TRUE)
+#   s1 <- step.SW(f1, 1)
 #   r <- s.grad$par[1] / s1$par
 #   r <- max(r, 1/r)
 #   expect_lte(r, 4)
@@ -53,8 +55,7 @@ test_that("for unfortunate inputs, the search may hit the boundary", {
 # })
 
 # test_that("the error in vector inputs does not propagate too strongly", {
-#   s.grad <- gradstep(x = 1:4, FUN = function(x) sum(sin(x)), method = "SW",
-#                      control = list(diagnostics = TRUE))
+#   s.grad <- gradstep(x = 1:4, FUN = function(x) sum(sin(x)), method = "SW")
 #   expect_equal(s.grad$exitcode, rep(0, 4))
 #
 #   f1 <- function(x) sin(x) + sum(sin(2:4))

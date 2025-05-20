@@ -2,18 +2,16 @@
 % Please edit documentation in R/step-select.R
 \name{plotTE}
 \alias{plotTE}
-\title{Estimated total error plot as in Mathur (2012)}
+\title{Estimated total error plot}
 \usage{
 plotTE(
   hgrid,
-  etrunc,
+  etotal,
   eround,
   hopt = NULL,
-  i.increasing = NULL,
-  i.good = NULL,
-  i.okay = NULL,
-  eps = .Machine$double.eps/2,
-  delta = .Machine$double.eps/2,
+  elabels = NULL,
+  echeck = NULL,
+  epsilon = .Machine$double.eps^(7/8),
   ...
 )
 }
@@ -21,7 +19,7 @@ plotTE(
 \item{hgrid}{Numeric vector: a sequence of step sizes used as the horizontal positions
 (usually exponentially spaced).}
 
-\item{etrunc}{Numeric vector: estimated truncation error at each step size.
+\item{etotal}{Numeric vector: estimated combined error at each step size.
 This is typically computed by subtracting a more accurate finite-difference approximation from
 a less accurate one.}
 
@@ -31,20 +29,14 @@ or the upper bound is used.}
 \item{hopt}{Numeric scalar (optional): selected optimal step size. If provided,
 a vertical line is drawn at this value.}
 
-\item{i.increasing}{Integer vector (optional): indices of step sizes where the
-truncation error is increasing, which indicates the search range.}
+\item{elabels}{Character vector of the same length as \code{hgrid} containing the following values:
+\code{"r", "g", "o", "i", "b"} for \strong{r}ounding, \strong{g}ood truncation, \strong{o}kay truncation,
+\strong{i}ncreasing truncation and \strong{b}ad truncation.}
 
-\item{i.good}{Integer vector (optional): indices of step sizes where the truncation
-error follows the expected reduction (slope ~ accuracy order; 2 for central differences).}
+\item{echeck}{Numeric vector: estimated V-shaped check, usually from a fit.}
 
-\item{i.okay}{Integer vector (optional): indices where the truncation error is
-acceptable but slightly deviates from the expected behaviour.}
-
-\item{eps}{Numeric scalar: condition error, i.e. the error bound for the accuracy of the evaluated
+\item{epsilon}{Numeric scalar: condition error, i.e. the error bound for the accuracy of the evaluated
 function; used for labelling rounding error assumptions.}
-
-\item{delta}{Numeric scalar: subtraction cancellation error, used for labelling rounding error
-assumptions.}
 
 \item{...}{Additional graphical parameters passed to \code{plot()}.}
 }
@@ -57,7 +49,14 @@ used in automatic step-size selection for numerical differentiation.
 The plot follows the approach used in Mathur (2012) and other step-selection methods.
 }
 \examples{
-hgrid <- 10^seq(-8, 3, 0.25)
-plotTE(hgrid, etrunc = 2e-12 * hgrid^2 + 1e-14 / hgrid,
-       eround = 1e-14 / hgrid, hopt = 0.4, i.increasing = 30:45, i.good = 32:45)
+
+a <- step.K(sin, 1)
+hgrid <- a$iterations$h
+etotal <- a$iterations$est.error[, 1]
+eround <- a$iterations$est.error[, 2]
+elabels <- c(rep("r", 32), rep("i", 2), rep("g", 12), rep("b", 15))
+hopt <- a$par
+plotTE(hgrid, etotal = 2e-12 * hgrid^2 + 1e-14 / hgrid,
+       eround = 1e-14 / hgrid, hopt = 0.4, i.increasing = 30:45, i.good = 32:45,
+       abline.round = c(-46.5, -1))
 }

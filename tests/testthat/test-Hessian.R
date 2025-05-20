@@ -2,8 +2,8 @@ test_that("compatibility with numDeriv", {
   f <- function(x) prod(sin(x))
   expect_warning(Hessian(x = 1:4, func = f), "Use the argument")
   expect_warning(Hessian(x = 1:3, FUN = f, method = "simple"), "numDeriv-like syntax")
-  expect_equal(suppressWarnings(Hessian(x = 1:3, FUN = f, method = "simple", report = 0)),
-               Hessian(x = 1:3, f, side = 1, acc.order = 1, h = 1e-4 * .Machine$double.eps^(1/4 - 1/5), report = 0),
+  expect_equal(as.numeric(suppressWarnings(Hessian(x = 1:3, FUN = f, method = "simple"))),
+               as.numeric(Hessian(x = 1:3, f, side = 1, acc.order = 1, h = 1e-4 * .Machine$double.eps^(1/4 - 1/5))),
                tolerance = 1e-15)
   expect_error(suppressWarnings(Hessian(x = 1:4, func = f, method = "complex")),
                "Complex Hessians not implemented")
@@ -18,13 +18,17 @@ test_that("Hessians are correct", {
     diag(m) <- -prod(sin(x))
     m
   }
-  hes <- Hessian(f, x, report = 0)
+  hes <- Hessian(f, x)
   true.hes <- h(x)
-  expect_equal(isSymmetric(hes), TRUE)
-  expect_equal(hes, true.hes, tolerance = 1e-7)
+  expect_equal(isSymmetric.matrix(hes), TRUE)
+  expect_equal(as.numeric(hes), as.numeric(true.hes), tolerance = 1e-7)
 
   expect_equal(attr(Hessian(f, x), "step.size.method"), "default")
   expect_equal(attr(Hessian(f, x, h = 0.01), "step.size.method"), "user-supplied")
+})
+
+test_that("1x1 Hessians are handled correctly", {
+  expect_equal(as.numeric(Hessian(FUN = sin, x = 1)), -sin(1), tolerance = 1e-8)
 })
 
 test_that("named arguments are handled correctly", {
@@ -36,19 +40,19 @@ test_that("named arguments are handled correctly", {
     diag(m) <- -prod(sin(x))
     m
   }
-  hes <- Hessian(f, x, report = 0)
+  hes <- Hessian(f, x)
   true.hes <- h(x)
 
   names(x) <- LETTERS[1:4]
-  hes.named <- Hessian(f, x, report = 0)
+  hes.named <- Hessian(f, x)
   expect_equal(colnames(hes.named), names(x))
   expect_equal(rownames(hes.named), names(x))
 
   x2 <- x
   names(x2) <- LETTERS[1:4]
   f2 <- function(x) prod(sin(x[c("A", "B")]) * sin(x[c("C", "D")]))
-  hes2 <- Hessian(f2, x2, report = 0)
-  expect_equal(unname(hes2), true.hes, tolerance = 1e-7)
+  hes2 <- Hessian(f2, x2)
+  expect_equal(as.numeric(hes2), as.numeric(true.hes), tolerance = 1e-7)
 })
 
 test_that("Higher-order accuracy works", {
@@ -96,11 +100,22 @@ test_that("input check works", {
 
 test_that("compatibility with numDeriv", {
   expect_warning(Hessian(x = 1:4, func = sum), "Use the argument")
+  expect_warning(h <- Hessian(function(x) sum(sin(x)), 1:4, method = "Richardson"), "numDeriv-like syntax")
+  expect_equal(diag(h), -sin(1:4), tolerance = 1e-9)
+
+  w <- capture_warnings(Hessian(x = 1:4, sum, method = "Richardson", method.args = list(v = 2)))
+  expect_true(any(grepl("method argument 'v'", w)))
 })
+
 
 test_that("parallelisation of Hessian works", {
   f <- function(x) mean(x^2)
   expect_equal(Hessian(x = 1:10, FUN = f, cores = 1),
                Hessian(x = 1:10, FUN = f, cores = 2))
+})
+
+test_that("high-dimensional Hessians work", {
+  f <- function(x) 0.5*mean(x^2)
+  expect_equal(median(diag(Hessian(f, 1:50))), 1/50, tolerance = 1e-5)
 })
 
