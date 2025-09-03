@@ -40,7 +40,17 @@ test_that("Step-size search prints uniform and adequate results", {
 
 test_that("Dimension checks are printed adequately", {
   d <- capture.output(print(checkDimensions(sin, x = 1)))
-  expect_equal(d, "Function properties: element-wise, vectorised, single-valued.")
+  expect_identical(d, "Function properties: element-wise, vectorised, single-valued.")
+})
+
+test_that("Plots work well", {
+  expect_identical(step.CR(sin, 1), plot(step.CR(sin, 1)))
+  expect_identical(step.CR(sin, 1, acc.order = 2), plot(step.CR(sin, 1, acc.order = 2)))
+  expect_identical(step.DV(sin, 1), plot(step.DV(sin, 1)))
+  expect_identical(step.plugin(sin, 1), plot(step.plugin(sin, 1)))
+  expect_identical(step.SW(sin, 1), plot(step.SW(sin, 1)))
+  expect_identical(step.M(sin, 1), plot(step.M(sin, 1)))
+  expect_identical(step.K(sin, 1), plot(step.K(sin, 1)))
 })
 
 

@@ -115,6 +115,35 @@ mults4 <- getMults(4)
 print(mults4[mults4 != 0])
 
 ## -----------------------------------------------------------------------------
+n <- 100
+h <- pi/n  # Like interval [0, 1]; the step size between grid points is pi/100
+n1 <- n + 1  # Total points
+x <- seq(0, pi, by = h)  # 101 grid points
+y <- sin(x)  # Original function values at grid points
+dy <- cos(x)  # True derivative at grid points (for comparison only)
+
+## -----------------------------------------------------------------------------
+a <- 9  # Odd; one more than the accuracy order for symmetric stencils
+aa <- floor(a/2)
+inds <- lapply(1:n1, function(i) (i-aa):(i+aa))  # Symmetric indices
+inds <- lapply(inds, function(x) {
+  if (min(x) < 1) x <- x - min(x) + 1
+  if (max(x) > n1) x <- x - max(x) + n1
+  x
+})
+stncls <- lapply(seq_along(inds), function(i) inds[[i]] - i)
+wgts <- lapply(stncls, function(s) fdCoef(stencil = s, zero.action = "round")$weights)
+
+## -----------------------------------------------------------------------------
+ndy <- sapply(seq_along(inds), function(i) sum(y[inds[[i]]] * wgts[[i]])) / h
+
+ae <- abs(dy - ndy)
+plot(x, log(ae), type = "l", bty = "n", main = "Log(approx. error)")  # The error is tiny
+median(ae)  # 4e-15!
+head(ae)  # At most 1e-13
+tail(ae)  # At most 2e-14
+
+## -----------------------------------------------------------------------------
 x   <- -0.2456605107847454  # 16 sig. digs
 t   <- 1/59
 print(res1 <- (x-t)^4 * (t^-4 / 4), 17)

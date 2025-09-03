@@ -4,7 +4,7 @@
 \alias{gradstep}
 \alias{print.stepsize}
 \alias{print.gradstep}
-\title{Automatic step selection for numerical derivatives}
+\title{Automatic step selection for gradients}
 \usage{
 gradstep(
   FUN,
@@ -77,7 +77,7 @@ those grids, estimated error ratios, and estimated derivative values for
 each coordinate.
 }
 \description{
-Automatic step selection for numerical derivatives
+Automatic step selection for gradients
 }
 \details{
 We recommend using the Stepleman--Winarsky algorithm because it does not suffer
@@ -92,8 +92,14 @@ gradstep(x = 1, FUN = sin, method = "CRm")
 gradstep(x = 1, FUN = sin, method = "DV")
 gradstep(x = 1, FUN = sin, method = "SW")
 gradstep(x = 1, FUN = sin, method = "M")
+gradstep(x = 1, FUN = sin, method = "K")
 # Works for gradients
-gradstep(x = 1:4, FUN = function(x) sum(sin(x)))
+gradstep(x = 1:4, FUN = function(x) sum(sin(x)), method = "CR")
+gradstep(x = 1:4, FUN = function(x) sum(sin(x)), method = "CRm")
+gradstep(x = 1:4, FUN = function(x) sum(sin(x)), method = "DV")
+gradstep(x = 1:4, FUN = function(x) sum(sin(x)), method = "SW")
+gradstep(x = 1:4, FUN = function(x) sum(sin(x)), method = "M")
+gradstep(x = 1:4, FUN = function(x) sum(sin(x)), method = "K")
 print(step.CR(x = 1, sin))
 print(step.DV(x = 1, sin))
 print(step.plugin(x = 1, sin))

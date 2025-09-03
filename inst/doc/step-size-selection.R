@@ -126,3 +126,79 @@ legend("bottomleft", c("Fixed vs. optimal", "4th-order vs. optimal"), bty = "n",
 yax.vals <- c(-3e-10, -1e-10, -3e-11, -1e-11, -1e-12, 0, 1e-12, 1e-11, 3e-11)
 axis(2, squish(yax.vals), yax.vals, las = 1)
 
+## -----------------------------------------------------------------------------
+S <- function(r) {
+  if (is.unsorted(r)) r <- sort(r)
+  n_2 <- length(r)
+  n <- length(r) * 2
+  s <- numeric(n_2)
+  for (k in 1:n_2) {
+    j <- setdiff(1:n_2, k)
+    s[k] <- prod(abs(r[j]^2 / (r[k]^2 - r[j]^2))) / r[k]
+  }
+  prod(r)^(1/n_2) * sum(s)
+} 
+
+## -----------------------------------------------------------------------------
+S(c(1, 2))
+S(c(1, 3))    # Better
+S(c(1, 2.6))  # Even better
+
+## -----------------------------------------------------------------------------
+ff <- Vectorize(function(x) S(c(1, x)))
+oldpar <- par(mar = c(4, 4, 0, 0) + .1)
+curve(ff, 1.2, 5, bty = "n", xlab = expression(c[1]), ylab = "S")
+
+## -----------------------------------------------------------------------------
+optim(par = 2, fn = ff, method = "BFGS")$par
+# THE optimal length-4 grid is x0 + (-2.62, -1, 1, 2.62)h
+
+# Finding the optimum for multiple lengths
+nn <- 9
+res <- vector("list", nn)
+for (i in seq_along(res)) {
+  set.seed(i)
+  n <- 2 + 2*i
+  # init.val <- (1:i)*2
+  ff <- function(x) S(c(1, x))
+  lower <- 1:i
+  upper <- (1+(1:i)*3)^0.9
+  init.pop <- sapply(1:i, function(j) runif(n*20, lower[j], upper[j]))
+  init.pop <- apply(init.pop, 1, sort)
+  if (NCOL(init.pop) == 1) init.pop <- matrix(init.pop) else 
+    if (ncol(init.pop) > nrow(init.pop)) init.pop <- t(init.pop)
+  ff0 <- apply(init.pop, 1, ff)
+  x0 <- init.pop[which.min(ff0), ]
+  res[[i]] <- sort(optim(par = x0, fn = ff, method = "BFGS",
+                         control = list(reltol = 1e-8, maxit = 100))$par)
+}
+
+# Table 2b from Oliver & Ruffhead (1975)
+tab <- matrix(nrow = length(res), ncol = nn)
+for (i in 1:nn) tab[i, 1:i] <- res[[i]]
+
+## -----------------------------------------------------------------------------
+bmean <- round(colMeans(tab, na.rm = TRUE), 2)
+print(bmean)
+ff(bmean)  # Close to 10
+ff(bmean[1])  # Close to 2
+
+## -----------------------------------------------------------------------------
+par(mar = c(4, 4, 0, 0) + .1)
+plot(NULL, NULL, xlim = c(0, max(res[[i]]) + .5), ylim = c(0, nn+1),
+     xlab = "Evaluation points", ylab = expression(n/2-1), bty = "n")
+for (i in 1:9) points(c(1, res[[i]]), rep(i, length(res[[i]])+1), pch = 16, type = "b")
+for (i in 1:9) points(sapply(res, "[", i), rep(1:nn), pch = 16, type = "b")
+abline(v = 0, lty = 2)
+abline(v = seq(1, max(bmean)+1), lty = 3, col = "#00000044")
+
+## -----------------------------------------------------------------------------
+b <- c(1, bmean)  # Nodes
+x <- 1:10
+plot(x, b, bty = "n", xlab = expression(n/2-1), ylim = c(0, max(bmean)+1),
+     ylab = expression("Approximate"~c[i]))
+ft <- nls(b ~ d + c*x^a, start = c(d = 0, c = 2.5, a = 0.75), weights = 1:10)
+lines(x, -4.37 + 5.03 * x^0.55)
+lines(x, predict(ft), col = 2)
+par(oldpar)
+
