@@ -2,7 +2,7 @@ Package: pnd
 Type: Package
 Title: Parallel Numerical Derivatives, Gradients, Jacobians, and
         Hessians of Arbitrary Accuracy Order
-Version: 0.1.1
+Version: 0.1.2
 Authors@R: person(given = c("Andreï", "Victorovitch"), family = "Kostyrka",
         role = c("aut", "cre"), email="andrei.kostyrka@gmail.com")
 Maintainer: Andreï Victorovitch Kostyrka <andrei.kostyrka@gmail.com>
@@ -24,11 +24,11 @@ Depends: R (>= 3.4.0)
 Imports: parallel, Rdpack
 Suggests: numDeriv, knitr, rmarkdown, testthat (>= 3.0.0)
 RdMacros: Rdpack
-RoxygenNote: 7.3.2
+RoxygenNote: 7.3.3
 VignetteBuilder: knitr
 Config/testthat/edition: 3
 NeedsCompilation: no
-Packaged: 2025-09-03 21:19:51 UTC; avk
+Packaged: 2026-02-12 18:10:12 UTC; fifis
 Author: Andreï Victorovitch Kostyrka [aut, cre]
 Repository: CRAN
-Date/Publication: 2025-09-03 22:00:02 UTC
+Date/Publication: 2026-02-12 19:00:02 UTC
